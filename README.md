@@ -1,4 +1,4 @@
-# NearFix — Smart Local Services Marketplace (Chunk 1)
+# NearFix — Smart Local Services Marketplace 
 
 Rayat Bahra University · B.Tech CSE (3rd year, 5th semester) · DSA project.
 
