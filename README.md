@@ -1,11 +1,11 @@
-# NearFix — Smart Local Services Marketplace (Chunk 1)
+# NearFix — Smart Local Services Marketplace 
 
 Rayat Bahra University · B.Tech CSE (3rd year, 5th semester) · DSA project.
 
 NearFix connects customers with verified local service providers (plumbers, electricians,
-AC technicians, …). This repository holds **Chunk 1** of the project.
+AC technicians, …). This repository holds the project.
 
-## What is in Chunk 1
+
 
 | Area | What it does |
 |------|--------------|
@@ -79,5 +79,5 @@ NearFix/
 ```
 
 ## Roadmap
-Next chunks: search and filters, DSA matching engine (HashMap, Max-Heap, Merge Sort,
+search and filters, DSA matching engine (HashMap, Max-Heap, Merge Sort,
 Dijkstra), booking flow, payments and reviews, testing and final report.
