@@ -62,7 +62,7 @@ Password for all: `NearFix@123`
 
 | Role | Email |
 |------|-------|
-| Customer | alex1232gmail.com |
+| Customer | alex123@gmail.com |
 | Provider | rajkumar@gmail.com |
 
 ## Project structure
