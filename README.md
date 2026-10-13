@@ -58,13 +58,12 @@ npm run dev                         # http://localhost:5173
 The Vite dev server proxies `/api` and `/admin` to `http://127.0.0.1:8000`.
 
 ### Demo accounts (created by `seed_nearfix`, development only)
-Password for all: `Nearfix@123`
+Password for all: `NearFix@123`
 
 | Role | Email |
 |------|-------|
-| Admin | admin@nearfix.dev |
-| Customer | customer@nearfix.dev |
-| Provider | raj@nearfix.dev |
+| Customer | alex1232gmail.com |
+| Provider | rajkumar@gmail.com |
 
 ## Project structure
 ```
