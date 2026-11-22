@@ -228,18 +228,44 @@ export const updateBookingStatus = async (req, res) => {
 
     await booking.save();
 
-    // Notify counterpart
-    const targetUserId =
-      String(req.user._id) === String(booking.customer)
-        ? booking.provider.user
-        : booking.customer;
-
-    await Notification.create({
-      user: targetUserId,
-      title: `Booking Update: ${status.replace('_', ' ').toUpperCase()}`,
-      body: `Booking for ${booking.serviceName} is now ${status.replace('_', ' ')}.`,
-      link: `/bookings/${booking._id}`,
-    });
+    // Enhanced bidirectional notifications per status transition
+    const isActorCustomer = String(req.user._id) === String(booking.customer);
+    if (status === 'accepted') {
+      await Notification.create({
+        user: booking.customer,
+        title: 'Booking Confirmed',
+        body: `Your ${booking.serviceName} booking has been accepted. The technician will arrive as scheduled.`,
+        link: '/customer/bookings',
+      });
+    } else if (status === 'rejected') {
+      await Notification.create({
+        user: booking.customer,
+        title: 'Booking Not Available',
+        body: `The technician could not accept your ${booking.serviceName} request. Please try another nearby professional.`,
+        link: '/search',
+      });
+    } else if (status === 'in_progress') {
+      await Notification.create({
+        user: booking.customer,
+        title: 'Work Started',
+        body: `Your ${booking.serviceName} service is now in progress.`,
+        link: `/track/${booking._id}`,
+      });
+    } else if (status === 'completed') {
+      await Notification.create({
+        user: booking.customer,
+        title: 'Service Completed',
+        body: `Your ${booking.serviceName} is complete. Please rate and review the technician.`,
+        link: '/customer/bookings',
+      });
+    } else if (status === 'cancelled' && isActorCustomer) {
+      await Notification.create({
+        user: booking.provider.user,
+        title: 'Booking Cancelled',
+        body: `A customer cancelled their ${booking.serviceName} booking.`,
+        link: '/provider/dashboard',
+      });
+    }
 
     return res.json({ message: 'Booking status updated', booking });
   } catch (error) {

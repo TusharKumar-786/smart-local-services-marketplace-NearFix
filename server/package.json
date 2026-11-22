@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "node --test tests/engine.test.js tests/api.test.js",
-    "seed": "node src/seed/seed.js"
+    "seed": "node src/seed/seed.js",
+    "bootstrap": "node src/seed/bootstrap.js",
+    "create-admin": "node src/seed/create-admin.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -1,6 +1,7 @@
 import { Review } from '../models/Review.js';
 import { Booking } from '../models/Booking.js';
 import { ProviderProfile } from '../models/ProviderProfile.js';
+import { Notification } from '../models/Notification.js';
 
 export const createReview = async (req, res) => {
   try {
@@ -15,7 +16,7 @@ export const createReview = async (req, res) => {
       return res.status(400).json({ message: 'Review comment is required' });
     }
 
-    const booking = await Booking.findById(bookingId);
+    const booking = await Booking.findById(bookingId).populate('provider');
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
@@ -28,6 +29,10 @@ export const createReview = async (req, res) => {
       return res.status(400).json({ message: 'Reviews can only be submitted after service completion' });
     }
 
+    if (booking.paymentStatus !== 'paid') {
+      return res.status(400).json({ message: 'Payment must be completed before submitting a review' });
+    }
+
     const existingReview = await Review.findOne({ booking: bookingId });
     if (existingReview) {
       return res.status(400).json({ message: 'A review has already been submitted for this booking' });
@@ -36,7 +41,7 @@ export const createReview = async (req, res) => {
     const review = await Review.create({
       booking: booking._id,
       customer: req.user._id,
-      provider: booking.provider,
+      provider: booking.provider._id,
       rating: numRating,
       comment: comment.trim(),
     });
@@ -45,14 +50,24 @@ export const createReview = async (req, res) => {
     await booking.save();
 
     // Recalculate provider average rating
-    const allProviderReviews = await Review.find({ provider: booking.provider });
+    const allProviderReviews = await Review.find({ provider: booking.provider._id });
     const totalRating = allProviderReviews.reduce((sum, r) => sum + r.rating, 0);
     const avg = Math.round((totalRating / allProviderReviews.length) * 10) / 10;
 
-    await ProviderProfile.findByIdAndUpdate(booking.provider, {
+    await ProviderProfile.findByIdAndUpdate(booking.provider._id, {
       ratingAverage: avg,
       ratingCount: allProviderReviews.length,
     });
+
+    // Notify provider about new review
+    if (booking.provider.user) {
+      await Notification.create({
+        user: booking.provider.user,
+        title: 'New Customer Review',
+        body: `You received a ${numRating}-star review for ${booking.serviceName}.`,
+        link: '/provider/dashboard',
+      });
+    }
 
     return res.status(201).json({ message: 'Review submitted successfully', review });
   } catch (error) {
@@ -69,5 +84,25 @@ export const getProviderReviews = async (req, res) => {
     return res.json({ reviews });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to retrieve reviews' });
+  }
+};
+
+export const getMyReviews = async (req, res) => {
+  try {
+    const profile = await ProviderProfile.findOne({ user: req.user._id });
+    if (!profile) return res.status(404).json({ message: 'Provider profile not found' });
+
+    const reviews = await Review.find({ provider: profile._id })
+      .populate('customer', 'name avatar neighbourhood')
+      .populate('booking', 'serviceName')
+      .sort({ createdAt: -1 });
+
+    return res.json({
+      reviews,
+      ratingAverage: profile.ratingAverage,
+      ratingCount: profile.ratingCount,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to load reviews' });
   }
 };

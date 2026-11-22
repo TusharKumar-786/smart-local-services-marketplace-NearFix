@@ -67,9 +67,9 @@ export const register = async (req, res) => {
         categories: data.categories && data.categories.length > 0 ? data.categories : ['plumber'],
         skills: ['Diagnosis & Repair', 'Emergency Services'],
         serviceAreas: [data.neighbourhood || 'Sector 17, Chandigarh'],
-        verificationStatus: 'verified',
-        ratingAverage: 4.8,
-        ratingCount: 1,
+        verificationStatus: 'pending',
+        ratingAverage: null,
+        ratingCount: 0,
       });
     }
 

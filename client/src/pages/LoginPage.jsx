@@ -11,7 +11,6 @@ import {
   Banknote,
   Clock,
   ArrowRight,
-  UserCheck,
 } from 'lucide-react';
 
 export const LoginPage = () => {
@@ -46,12 +45,6 @@ export const LoginPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemo = (demoEmail, demoPass) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError('');
   };
 
   return (
@@ -130,39 +123,6 @@ export const LoginPage = () => {
             <p className="text-xs text-muted mt-1">
               Welcome back. Enter your credentials to access your dashboard.
             </p>
-          </div>
-
-          {/* Quick Demo Credentials Box */}
-          <div className="bg-tint p-4 rounded-2xl border border-primary/20 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5" /> One-Click Demo Logins
-              </span>
-              <span className="text-[10px] text-muted">Instant Access</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('arjun.customer@nearfix.in', 'CustomerPass123!')}
-                className="py-1.5 px-2 rounded-xl bg-surface text-ink text-xs font-bold border border-sand hover:border-primary shadow-soft-sm transition-all text-center"
-              >
-                Customer
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('rajesh.electric@nearfix.in', 'ProviderPass123!')}
-                className="py-1.5 px-2 rounded-xl bg-surface text-ink text-xs font-bold border border-sand hover:border-primary shadow-soft-sm transition-all text-center"
-              >
-                Provider
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('admin@nearfix.in', 'AdminPass123!')}
-                className="py-1.5 px-2 rounded-xl bg-surface text-ink text-xs font-bold border border-sand hover:border-primary shadow-soft-sm transition-all text-center"
-              >
-                Admin
-              </button>
-            </div>
           </div>
 
           {error && (

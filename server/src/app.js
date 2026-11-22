@@ -37,6 +37,17 @@ export const createApp = () => {
   });
   app.use('/api', apiLimiter);
 
+  // Strict rate limiting for auth endpoints (10 per 15 min)
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many sign-in attempts. Please try again in 15 minutes.' },
+  });
+  app.use('/api/auth/login', authLimiter);
+  app.use('/api/auth/register', authLimiter);
+
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 

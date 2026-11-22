@@ -1,6 +1,12 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Block seed in production
+if (process.env.NODE_ENV === 'production') {
+  console.error('Seed is blocked in production. Use bootstrap + create-admin instead.');
+  process.exit(1);
+}
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +22,12 @@ import { Payment } from '../models/Payment.js';
 import { Complaint } from '../models/Complaint.js';
 import { Notification } from '../models/Notification.js';
 import { AreaGraphModel } from '../models/AreaGraph.js';
+
+// Block seed in production
+if (process.env.NODE_ENV === 'production') {
+  console.error('Seed is blocked in production. Use bootstrap + create-admin instead.');
+  process.exit(1);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,93 +72,93 @@ const CATEGORIES = [
   {
     name: 'Electrician',
     slug: 'electrician',
-    description: 'Fast switchboard repairs, short circuit fixes, fan fittings and full house rewiring.',
+    description: 'Certified electricians for wiring, panel repairs, appliance connections and emergency power issues.',
     iconKey: 'Zap',
     coverImage: '/images/categories/electrician.webp',
-    startingPrice: 299,
-    popularSkills: ['Short Circuit Repair', 'MCB Switchboard Fix', 'Ceiling Fan Installation', 'Inverter Wiring', 'Appliance Power Points'],
+    startingPrice: 349,
+    popularSkills: ['Wiring & Rewiring', 'MCB Panel Repair', 'Fan Installation', 'Socket Replacement', 'Short Circuit Fix'],
   },
   {
-    name: 'AC Repair',
-    slug: 'ac-repair',
-    description: 'Deep foam jet servicing, gas charging, cooling diagnosis and PCB board repair.',
+    name: 'AC Technician',
+    slug: 'ac-technician',
+    description: 'Air-conditioner installation, gas top-up, filter cleaning, PCB repair and annual maintenance.',
     iconKey: 'Wind',
-    coverImage: '/images/categories/ac-repair.webp',
-    startingPrice: 499,
-    popularSkills: ['Foam Jet Servicing', 'Gas Leakage Fix', 'Compressor Check', 'AC Installation & Uninstallation', 'Cooling Coil Cleaning'],
-  },
-  {
-    name: 'Painter',
-    slug: 'painter',
-    description: 'Interior and exterior wall painting, waterproof putty application, texture and trim work.',
-    iconKey: 'Paintbrush',
-    coverImage: '/images/categories/painter.webp',
-    startingPrice: 599,
-    popularSkills: ['Interior Emulsion', 'Waterproofing & Putty', 'Texture Wall Design', 'Wood Polish', 'Exterior Weathercoat'],
+    coverImage: '/images/categories/ac-technician.webp',
+    startingPrice: 399,
+    popularSkills: ['AC Installation', 'Gas Refill', 'Filter Deep Clean', 'PCB Repair', 'Annual AMC'],
   },
   {
     name: 'Carpenter',
     slug: 'carpenter',
-    description: 'Door lock replacements, hinge repairs, modular wardrobe assembly and furniture fixing.',
+    description: 'Custom furniture making, door and window repairs, modular wardrobe fitting and polish work.',
     iconKey: 'Hammer',
     coverImage: '/images/categories/carpenter.webp',
-    startingPrice: 399,
-    popularSkills: ['Door Lock & Hinge Fix', 'Modular Furniture Assembly', 'Drawer Channel Repair', 'Wooden Partition Work', 'Window Frame Adjustment'],
+    startingPrice: 349,
+    popularSkills: ['Furniture Repair', 'Door Fitting', 'Modular Wardrobe', 'Polish & Laminate', 'False Ceiling'],
   },
   {
-    name: 'Home Cleaning',
-    slug: 'home-cleaning',
-    description: 'Deep bathroom scrubbing, kitchen de-greasing, sofa shampooing and full home sanitization.',
+    name: 'Painter',
+    slug: 'painter',
+    description: 'Interior and exterior painting, texture coating, waterproofing and wall putty finishing.',
+    iconKey: 'Paintbrush',
+    coverImage: '/images/categories/painter.webp',
+    startingPrice: 299,
+    popularSkills: ['Interior Emulsion', 'Exterior Weather Coat', 'Texture Paint', 'Wall Putty', 'Waterproofing'],
+  },
+  {
+    name: 'Cleaner',
+    slug: 'cleaner',
+    description: 'Deep cleaning for homes and offices: bathroom, kitchen, sofa, carpet and post-construction.',
     iconKey: 'Sparkles',
-    coverImage: '/images/categories/home-cleaning.webp',
-    startingPrice: 799,
-    popularSkills: ['Deep Bathroom Scrubbing', 'Kitchen Chimney & Tile Degreasing', 'Sofa & Mattress Shampooing', 'Balcony & Floor Scrubbing', 'Full Villa Deep Clean'],
+    coverImage: '/images/categories/cleaner.webp',
+    startingPrice: 299,
+    popularSkills: ['Bathroom Deep Clean', 'Kitchen Degreasing', 'Sofa Steam Clean', 'Post-Construction', 'Office Sanitisation'],
   },
   {
     name: 'Appliance Repair',
     slug: 'appliance-repair',
-    description: 'Washing machine drum repair, refrigerator cooling diagnosis, microwave and RO servicing.',
-    iconKey: 'Tool',
+    description: 'On-site repair for washing machines, refrigerators, microwaves, geysers and water purifiers.',
+    iconKey: 'Settings',
     coverImage: '/images/categories/appliance-repair.webp',
-    startingPrice: 349,
-    popularSkills: ['Washing Machine Drum Fix', 'Refrigerator Thermostat & Gas', 'Microwave Magnetron Check', 'Mixer Grinder Motor Fix', 'Dishwasher Maintenance'],
+    startingPrice: 299,
+    popularSkills: ['Washing Machine Repair', 'Refrigerator Service', 'Microwave Fix', 'Geyser Repair', 'Water Purifier'],
+  },
+  {
+    name: 'CCTV & Security',
+    slug: 'cctv-security',
+    description: 'CCTV camera installation and configuration, DVR setup, video door phones and alarm systems.',
+    iconKey: 'Camera',
+    coverImage: '/images/categories/cctv-security.webp',
+    startingPrice: 499,
+    popularSkills: ['Camera Installation', 'DVR/NVR Setup', 'Network Config', 'Video Door Phone', 'Alarm System'],
   },
   {
     name: 'Pest Control',
     slug: 'pest-control',
-    description: 'Herbal gel treatment for cockroaches, anti-termite piping treatment and bed bug eradication.',
-    iconKey: 'ShieldAlert',
+    description: 'General pest control, anti-termite treatment, cockroach spray and rodent management.',
+    iconKey: 'Bug',
     coverImage: '/images/categories/pest-control.webp',
-    startingPrice: 649,
-    popularSkills: ['Cockroach Herbal Gel', 'Anti-Termite Drilling', 'Bed Bug Heat Treatment', 'Mosquito Fogging', 'Rodent Baiting'],
+    startingPrice: 599,
+    popularSkills: ['General Pest Control', 'Anti-Termite', 'Cockroach Treatment', 'Rodent Management', 'Bedbug Treatment'],
   },
   {
-    name: 'Water Purifier Service',
+    name: 'Water Purifier',
     slug: 'water-purifier',
-    description: 'RO membrane replacement, sediment carbon filter change, TDS check and booster pump repair.',
+    description: 'RO and UV water purifier installation, annual maintenance, filter replacement and repair.',
     iconKey: 'Droplets',
     coverImage: '/images/categories/water-purifier.webp',
-    startingPrice: 399,
-    popularSkills: ['RO Filter Replacement', 'TDS Level Adjustment', 'Booster Pump Replacement', 'UV Lamp Fix', 'Water Leakage Clearance'],
-  },
-  {
-    name: 'CCTV and Wi-Fi Setup',
-    slug: 'cctv-wifi',
-    description: 'IP camera installation, DVR/NVR configuration, mesh Wi-Fi setup and optical fibre cabling.',
-    iconKey: 'Wifi',
-    coverImage: '/images/categories/cctv-wifi.webp',
-    startingPrice: 499,
-    popularSkills: ['Dome & Bullet Camera Fitting', 'NVR/DVR Network Config', 'Mesh Wi-Fi Router Range Setup', 'LAN & Fibre Patch Cabling', 'Mobile Remote View Sync'],
+    startingPrice: 299,
+    popularSkills: ['RO Installation', 'Filter Replacement', 'UV Repair', 'TDS Calibration', 'Annual Service'],
   },
 ];
 
-// 2. 32 Tricity Area Nodes
+// 32 Tricity area nodes (Chandigarh 12, Mohali 12, Panchkula 8)
 const TRICITY_AREAS = [
   // Chandigarh (12)
-  { name: 'Sector 17, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7415, lng: 76.7794 } },
-  { name: 'Sector 22, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7329, lng: 76.7701 } },
-  { name: 'Sector 35, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7225, lng: 76.7562 } },
-  { name: 'Sector 43, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7142, lng: 76.7431 } },
+  { name: 'Sector 17, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7373, lng: 76.7881 } },
+  { name: 'Sector 22, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7352, lng: 76.7975 } },
+  { name: 'Sector 35, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7271, lng: 76.7692 } },
+  { name: 'Sector 43, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7132, lng: 76.7643 } },
   { name: 'Sector 8, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7456, lng: 76.7952 } },
   { name: 'Sector 15, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7521, lng: 76.7684 } },
   { name: 'Sector 26, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7291, lng: 76.8112 } },
@@ -222,9 +234,9 @@ const ROAD_EDGES = [
   ['Phase 11, Mohali', 'Sector 20, Panchkula', 7.5],
 ];
 
-// 141 Unique Indian Provider Names with Matched Genders
+// 70 Unique Indian Provider Names (7 per trade × 10 trades)
 const UNIQUE_PROVIDER_NAMES = [
-  { name: 'Rajesh Sharma', gender: 'male' }, // Demo Provider #1
+  { name: 'Rajesh Sharma', gender: 'male' },    // index 0 — demo provider
   { name: 'Manpreet Singh', gender: 'male' },
   { name: 'Aman Verma', gender: 'male' },
   { name: 'Kuldeep Saini', gender: 'male' },
@@ -294,77 +306,6 @@ const UNIQUE_PROVIDER_NAMES = [
   { name: 'Vijay Anand', gender: 'male' },
   { name: 'Ritu Aggarwal', gender: 'female' },
   { name: 'Davinder Sohal', gender: 'male' },
-  { name: 'Lalit Mohan', gender: 'male' },
-  { name: 'Dinesh Rana', gender: 'male' },
-  { name: 'Shashi Bhushan', gender: 'male' },
-  { name: 'Vandana Sen', gender: 'female' },
-  { name: 'Kewal Krishan', gender: 'male' },
-  { name: 'Brij Mohan', gender: 'male' },
-  { name: 'Rajneesh Sood', gender: 'male' },
-  { name: 'Kiran Deep', gender: 'female' },
-  { name: 'Swaran Singh', gender: 'male' },
-  { name: 'Amritpal Grewal', gender: 'male' },
-  { name: 'Hardip Virk', gender: 'male' },
-  { name: 'Nirmal Toor', gender: 'male' },
-  { name: 'Mamta Jain', gender: 'female' },
-  { name: 'Sanjeev Bedi', gender: 'male' },
-  { name: 'Pawan Khurana', gender: 'male' },
-  { name: 'Jitender Mathur', gender: 'male' },
-  { name: 'Shweta Pathak', gender: 'female' },
-  { name: 'Anand Swaroop', gender: 'male' },
-  { name: 'Charanjit Uppal', gender: 'male' },
-  { name: 'Avtar Bajwa', gender: 'male' },
-  { name: 'Balkar Deol', gender: 'male' },
-  { name: 'Sangeeta Malik', gender: 'female' },
-  { name: 'Daler Mann', gender: 'male' },
-  { name: 'Fateh Dhaliwal', gender: 'male' },
-  { name: 'Gagandeep Kahlon', gender: 'male' },
-  { name: 'Harpal Malhi', gender: 'male' },
-  { name: 'Rashmi Kapoor', gender: 'female' },
-  { name: 'Ishwar Dayal', gender: 'male' },
-  { name: 'Jaspal Pannu', gender: 'male' },
-  { name: 'Karamjit Tiwana', gender: 'male' },
-  { name: 'Lakhwinder Johal', gender: 'male' },
-  { name: 'Manmohan Sahota', gender: 'male' },
-  { name: 'Navdeep Waraich', gender: 'male' },
-  { name: 'Omkar Nath', gender: 'male' },
-  { name: 'Prabhjot Bains', gender: 'male' },
-  { name: 'Rupinder Mahal', gender: 'male' },
-  { name: 'Surjit Mangat', gender: 'male' },
-  { name: 'Tarlochan Kang', gender: 'male' },
-  { name: 'Ujjal Dosanjh', gender: 'male' },
-  { name: 'Varinder Atwal', gender: 'male' },
-  { name: 'Yadwinder Ghuman', gender: 'male' },
-  { name: 'Zorawar Gill', gender: 'male' },
-  { name: 'Ajitabh Shrivastav', gender: 'male' },
-  { name: 'Birender Tomar', gender: 'male' },
-  { name: 'Chirag Pareek', gender: 'male' },
-  { name: 'Devrat Upadhyay', gender: 'male' },
-  { name: 'Eklavya Shukla', gender: 'male' },
-  { name: 'Girish Chandra', gender: 'male' },
-  { name: 'Harshit Saxena', gender: 'male' },
-  { name: 'Indrajeet Tripathi', gender: 'male' },
-  { name: 'Jatin Dixit', gender: 'male' },
-  { name: 'Kanishk Bajpai', gender: 'male' },
-  { name: 'Lokendra Purohit', gender: 'male' },
-  { name: 'Mayank Awasthi', gender: 'male' },
-  { name: 'Nikhil Chaubey', gender: 'male' },
-  { name: 'Ojasvi Chaturvedi', gender: 'male' },
-  { name: 'Prashant Tiwari', gender: 'male' },
-  { name: 'Rajnish Dubey', gender: 'male' },
-  { name: 'Siddharth Trivedi', gender: 'male' },
-  { name: 'Tanmay Bhattacharya', gender: 'male' },
-  { name: 'Utkarsh Goswami', gender: 'male' },
-  { name: 'Vaibhav Kulshrestha', gender: 'male' },
-  { name: 'Yashwardhan Mathur', gender: 'male' },
-  { name: 'Abhimanyu Ojha', gender: 'male' },
-  { name: 'Bhupesh Pandey', gender: 'male' },
-  { name: 'Chandresh Shukla', gender: 'male' },
-  { name: 'Divyansh Agnihotri', gender: 'male' },
-  { name: 'Gyanendra Dwivedi', gender: 'male' },
-  { name: 'Himanshu Misra', gender: 'male' },
-  { name: 'Jaideep Gautam', gender: 'male' },
-  { name: 'Krishnakant Upadhyay', gender: 'male' },
 ];
 
 const CUSTOMER_REVIEW_COMMENTS = [
@@ -377,7 +318,7 @@ const CUSTOMER_REVIEW_COMMENTS = [
   'Fixed our washing machine drain sensor. Cleaned up the utility balcony after finishing. 5 stars.',
   'Excellent wall putty finish in the living room. Smooth surface, neat edges around the switchboards.',
   'Cleared a stubborn kitchen drain that had been blocked for two days. Brought high-pressure equipment and resolved it smoothly.',
-  'Replaced our RO carbon filters and calibrated TDS down from 480 to 95. Clean, professional work.'
+  'Replaced our RO carbon filters and calibrated TDS down from 480 to 95. Clean, professional work.',
 ];
 
 export const seedDatabase = async () => {
@@ -417,7 +358,7 @@ export const seedDatabase = async () => {
     });
     await AreaGraphModel.insertMany(areaGraphDocs);
 
-    console.log('3. Creating 3 Official Demo Accounts...');
+    console.log('3. Creating Demo Accounts...');
     const salt = await bcrypt.genSalt(10);
     const customerHash = await bcrypt.hash('CustomerPass123!', salt);
     const providerHash = await bcrypt.hash('ProviderPass123!', salt);
@@ -436,7 +377,7 @@ export const seedDatabase = async () => {
       address: 'House #1428, Phase 7, Near Rose Garden, Mohali',
     });
 
-    // Demo Provider (#1)
+    // Demo Provider (index 0 = Rajesh Sharma)
     const demoProviderUser = await User.create({
       name: 'Rajesh Sharma',
       email: 'rajesh.electric@nearfix.in',
@@ -483,107 +424,111 @@ export const seedDatabase = async () => {
       neighbourhood: 'Sector 17, Chandigarh',
     });
 
-    console.log('4. Generating 140+ Unique Indian Tradespeople across Tricity...');
-    const allProviders = [demoProviderProfile];
+    console.log('4. Creating 7 sample customers...');
     const customerUserIds = [demoCustomer._id];
-
-    // Seed 40 customer accounts for realistic reviews
-    for (let i = 0; i < 40; i++) {
-      const area = TRICITY_AREAS[i % TRICITY_AREAS.length];
-      const custName = `Resident ${UNIQUE_PROVIDER_NAMES[100 + (i % 40)].name}`;
+    const sampleCustomers = [
+      { name: 'Preet Kaur', area: 'Sector 22, Chandigarh' },
+      { name: 'Rohit Jain', area: 'Phase 5, Mohali' },
+      { name: 'Meena Batra', area: 'Sector 7, Panchkula' },
+      { name: 'Sukhwinder Gill', area: 'Sector 70, Mohali' },
+      { name: 'Anjali Nanda', area: 'Sector 35, Chandigarh' },
+      { name: 'Harish Monga', area: 'Sector 11, Panchkula' },
+    ];
+    for (let i = 0; i < sampleCustomers.length; i++) {
+      const c = sampleCustomers[i];
       const custUser = await User.create({
-        name: custName,
+        name: c.name,
         email: `customer.${i + 1}@nearfix.in`,
         phone: `98${Math.floor(10000000 + Math.random() * 90000000)}`,
         passwordHash: customerHash,
         role: 'customer',
         status: 'active',
-        avatar: getProviderAvatar(custName, 80 + i),
-        neighbourhood: area.name,
-        address: `House #${100 + i * 14}, ${area.name}`,
+        avatar: getProviderAvatar(c.name, 80 + i),
+        neighbourhood: c.area,
+        address: `House #${100 + i * 14}, ${c.area}`,
       });
       customerUserIds.push(custUser._id);
     }
 
-    // Seed remaining 140 providers (total 141 with demo provider)
-    for (let i = 1; i <= 140; i++) {
-      const providerData = UNIQUE_PROVIDER_NAMES[i] || { name: `Technician ${i}`, gender: 'male' };
-      const primaryCategory = CATEGORIES[(i - 1) % CATEGORIES.length];
-      const secondaryCategory = CATEGORIES[(i + 2) % CATEGORIES.length];
-      const area = TRICITY_AREAS[(i - 1) % TRICITY_AREAS.length];
-      const nearbyArea = TRICITY_AREAS[i % TRICITY_AREAS.length];
-      const avatarUrl = getProviderAvatar(providerData.name, i + 1);
+    console.log('5. Generating 70 providers (7 per trade)...');
+    const allProviders = [demoProviderProfile];
+    // Index 1 is Manpreet Singh — start from index 1 since index 0 is Rajesh (demo)
+    let nameIdx = 1;
 
-      const pUser = await User.create({
-        name: providerData.name,
-        email: `pro.${providerData.name.toLowerCase().replace(/[^a-z]/g, '')}.${i}@nearfix.in`,
-        phone: `97${Math.floor(10000000 + Math.random() * 90000000)}`,
-        passwordHash: providerHash,
-        role: 'provider',
-        status: i === 138 ? 'blocked' : 'active',
-        avatar: avatarUrl,
-        neighbourhood: area.name,
-        address: `SCO #${20 + (i % 80)}, ${area.name}`,
-      });
+    for (let catIdx = 0; catIdx < CATEGORIES.length; catIdx++) {
+      const primaryCategory = CATEGORIES[catIdx];
+      for (let j = 0; j < 7; j++) {
+        const providerData = UNIQUE_PROVIDER_NAMES[nameIdx] || { name: `Technician ${nameIdx}`, gender: 'male' };
+        nameIdx++;
 
-      const exp = 3 + (i % 18);
-      const rating = Math.round((4.0 + (i % 11) * 0.1) * 10) / 10;
-      // Pricing derived from primaryCategory starting price
-      const visitCharge = primaryCategory.startingPrice + (i % 3) * 50;
+        const area = TRICITY_AREAS[(catIdx * 7 + j) % TRICITY_AREAS.length];
+        const nearbyArea = TRICITY_AREAS[(catIdx * 7 + j + 1) % TRICITY_AREAS.length];
+        const avatarUrl = getProviderAvatar(providerData.name, nameIdx);
+        const exp = 3 + (j * 2);
+        const visitCharge = primaryCategory.startingPrice + j * 50;
 
-      // Headline and skills strictly derived from primaryCategory
-      const headline = `${primaryCategory.name} & Repair Specialist (${exp} Yrs Exp)`;
-      const skills = primaryCategory.popularSkills.slice(0, 3 + (i % 3));
+        const pUser = await User.create({
+          name: providerData.name,
+          email: `pro.${providerData.name.toLowerCase().replace(/[^a-z]/g, '')}.${nameIdx}@nearfix.in`,
+          phone: `97${Math.floor(10000000 + Math.random() * 90000000)}`,
+          passwordHash: providerHash,
+          role: 'provider',
+          status: 'active',
+          avatar: avatarUrl,
+          neighbourhood: area.name,
+          address: `SCO #${20 + nameIdx % 80}, ${area.name}`,
+        });
 
-      const profile = await ProviderProfile.create({
-        user: pUser._id,
-        headline,
-        bio: `Trusted local ${primaryCategory.name.toLowerCase()} in ${area.name}. Providing prompt turnaround, clean workmanship, and genuine spare parts with clear upfront quotes.`,
-        categories: [primaryCategory.slug, secondaryCategory.slug],
-        skills,
-        experienceYears: exp,
-        serviceAreas: [area.name, nearbyArea.name],
-        location: {
-          type: 'Point',
-          coordinates: [
-            area.coordinates.lng + (Math.random() - 0.5) * 0.01,
-            area.coordinates.lat + (Math.random() - 0.5) * 0.01,
-          ],
-        },
-        pricing: {
-          visitCharge,
-          hourlyRate: Math.round(visitCharge * 0.7),
-        },
-        availability: {
-          days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-          hours: '8:30 AM - 8:30 PM',
-          isAvailableNow: i % 4 !== 0,
-        },
-        verificationStatus: i === 139 ? 'pending' : 'verified',
-        ratingAverage: Math.min(5.0, rating),
-        ratingCount: 8 + (i % 45),
-        earningsTotal: (12 + (i % 30)) * visitCharge,
-        photos: [avatarUrl],
-      });
+        const profile = await ProviderProfile.create({
+          user: pUser._id,
+          headline: `${primaryCategory.name} Specialist (${exp} Yrs Exp)`,
+          bio: `Trusted local ${primaryCategory.name.toLowerCase()} in ${area.name}. Prompt service, clean workmanship, upfront quotes.`,
+          categories: [primaryCategory.slug],
+          skills: primaryCategory.popularSkills.slice(0, 3 + (j % 3)),
+          experienceYears: exp,
+          serviceAreas: [area.name, nearbyArea.name],
+          location: {
+            type: 'Point',
+            coordinates: [
+              area.coordinates.lng + (Math.random() - 0.5) * 0.01,
+              area.coordinates.lat + (Math.random() - 0.5) * 0.01,
+            ],
+          },
+          pricing: {
+            visitCharge,
+            hourlyRate: Math.round(visitCharge * 0.7),
+          },
+          availability: {
+            days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            hours: '8:30 AM - 8:30 PM',
+            isAvailableNow: j % 4 !== 0,
+          },
+          verificationStatus: j === 6 ? 'pending' : 'verified',
+          ratingAverage: Math.min(5.0, 4.0 + j * 0.1),
+          ratingCount: 5 + j * 3,
+          earningsTotal: (8 + j * 2) * visitCharge,
+          photos: [avatarUrl],
+        });
 
-      allProviders.push(profile);
+        allProviders.push(profile);
+      }
     }
 
-    console.log('5. Generating 320+ Bookings across various statuses...');
+    console.log('6. Generating ~49 Bookings...');
     const bookingStatuses = ['requested', 'accepted', 'in_progress', 'completed', 'cancelled'];
     const bookings = [];
 
-    for (let i = 0; i < 330; i++) {
+    for (let i = 0; i < 49; i++) {
       const customerId = customerUserIds[i % customerUserIds.length];
       const provider = allProviders[i % allProviders.length];
       const isEmergency = i % 7 === 0;
-      const status = i < 220 ? 'completed' : bookingStatuses[i % bookingStatuses.length];
+      const status = i < 35 ? 'completed' : bookingStatuses[i % bookingStatuses.length];
       const categorySlug = provider.categories[0];
       const categoryObj = CATEGORIES.find((c) => c.slug === categorySlug) || CATEGORIES[0];
       const area = TRICITY_AREAS[i % TRICITY_AREAS.length];
 
       const scheduledDate = new Date();
-      scheduledDate.setDate(scheduledDate.getDate() - (i % 45));
+      scheduledDate.setDate(scheduledDate.getDate() - (i % 30));
 
       const booking = await Booking.create({
         customer: customerId,
@@ -595,15 +540,15 @@ export const seedDatabase = async () => {
         urgency: isEmergency ? 'emergency' : 'normal',
         scheduledFor: scheduledDate,
         problemDescription: isEmergency
-          ? 'Urgent emergency repair needed immediately. Facing water or electrical stoppage.'
+          ? 'Urgent emergency repair needed immediately.'
           : 'Standard servicing and diagnosis requested.',
         price: provider.pricing.visitCharge,
         status,
-        paymentStatus: status === 'completed' ? 'paid' : (i % 2 === 0 ? 'paid' : 'pending'),
-        hasReview: status === 'completed' && i < 220,
+        paymentStatus: status === 'completed' ? 'paid' : 'pending',
+        hasReview: status === 'completed' && i < 35,
         statusHistory: [
           { status: 'requested', timestamp: scheduledDate },
-          { status: status, timestamp: scheduledDate },
+          { status, timestamp: scheduledDate },
         ],
       });
 
@@ -622,40 +567,30 @@ export const seedDatabase = async () => {
       }
     }
 
-    console.log('6. Seeding 210+ Authentic Customer Reviews...');
-    for (let i = 0; i < 215; i++) {
+    console.log('7. Seeding ~35 Reviews...');
+    for (let i = 0; i < 35; i++) {
       const b = bookings[i];
       if (b && b.status === 'completed') {
-        const rating = 4 + (i % 2);
         await Review.create({
           booking: b._id,
           customer: b.customer,
           provider: b.provider,
-          rating: i % 15 === 0 ? 3 : rating,
+          rating: i % 15 === 0 ? 3 : 4 + (i % 2),
           comment: CUSTOMER_REVIEW_COMMENTS[i % CUSTOMER_REVIEW_COMMENTS.length],
           createdAt: b.scheduledFor,
         });
       }
     }
 
-    console.log('7. Seeding Complaints and Notifications...');
+    console.log('8. Seeding Complaints and Notifications...');
     await Complaint.create({
       raisedBy: customerUserIds[1],
       against: allProviders[5].user,
-      booking: bookings[225]._id,
+      booking: bookings[5]._id,
       subject: 'Technician arrived 45 minutes late without notice',
       description: 'The booking was set for 11 AM, but provider reached at 11:45 AM due to prior job overrun.',
       status: 'under_review',
       adminNote: 'Contacted provider to reiterate strict scheduling notice rules.',
-    });
-    await Complaint.create({
-      raisedBy: customerUserIds[2],
-      against: allProviders[8].user,
-      booking: bookings[226]._id,
-      subject: 'Additional parts cost query',
-      description: 'Wanted clarification on copper pipe charges for AC gas leak fix.',
-      status: 'resolved',
-      adminNote: 'Invoiced rate matched standard market price. Customer informed and satisfied.',
     });
 
     await Notification.create({
@@ -665,29 +600,23 @@ export const seedDatabase = async () => {
       link: '/customer/bookings',
     });
     await Notification.create({
-      user: demoCustomer._id,
-      title: 'Service Completed',
-      body: 'Rajesh Sharma completed the Electrical Inspection. Please rate your experience.',
-      link: '/customer/bookings',
-    });
-    await Notification.create({
       user: demoProviderUser._id,
       title: 'New Booking Request',
       body: 'Customer in Phase 7, Mohali has requested Electrician Service.',
-      link: '/provider/bookings',
+      link: '/provider/dashboard',
     });
 
     console.log('----------------------------------------------------');
     console.log('NearFix Database Seeded Successfully!');
-    console.log(`- 10 Service Categories (Updated Photography & Pricing)`);
-    console.log(`- 32 Area Graph Nodes (Mohali, Chandigarh, Panchkula)`);
-    console.log(`- 141 Unique Indian Providers with Distinct Avatars`);
-    console.log(`- 320+ Bookings with History`);
-    console.log(`- 210+ Customer Reviews`);
-    console.log(`Demo Credentials:`);
-    console.log(`  Customer: arjun.customer@nearfix.in / CustomerPass123!`);
-    console.log(`  Provider: rajesh.electric@nearfix.in / ProviderPass123!`);
-    console.log(`  Admin:    admin@nearfix.in / AdminPass123!`);
+    console.log('- 10 Service Categories');
+    console.log('- 32 Area Graph Nodes (Mohali, Chandigarh, Panchkula)');
+    console.log('- 71 Providers (demo + 7 per trade × 10 trades)');
+    console.log('- 7 Sample Customers');
+    console.log('- ~49 Bookings');
+    console.log('- ~35 Customer Reviews');
+    console.log('Demo Credentials (dev only):');
+    console.log('  Customer: arjun.customer@nearfix.in / CustomerPass123!');
+    console.log('  Provider: rajesh.electric@nearfix.in / ProviderPass123!');
     console.log('----------------------------------------------------');
 
     process.exit(0);

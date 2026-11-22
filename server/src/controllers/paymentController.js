@@ -1,5 +1,7 @@
 import { Payment } from '../models/Payment.js';
 import { Booking } from '../models/Booking.js';
+import { Notification } from '../models/Notification.js';
+import { ProviderProfile } from '../models/ProviderProfile.js';
 
 export const processPayment = async (req, res) => {
   try {
@@ -44,6 +46,25 @@ export const processPayment = async (req, res) => {
 
     booking.paymentStatus = 'paid';
     await booking.save();
+
+    // Notify provider about payment
+    const providerProfile = await ProviderProfile.findById(booking.provider);
+    if (providerProfile) {
+      await Notification.create({
+        user: providerProfile.user,
+        title: 'Payment Received',
+        body: `Payment of ₹${booking.price} received for ${booking.serviceName}.`,
+        link: '/provider/dashboard',
+      });
+    }
+
+    // Notify customer payment confirmation
+    await Notification.create({
+      user: booking.customer,
+      title: 'Payment Confirmed',
+      body: `Your payment of ₹${booking.price} for ${booking.serviceName} has been recorded.`,
+      link: '/customer/bookings',
+    });
 
     return res.status(201).json({
       message: 'Payment completed successfully',
