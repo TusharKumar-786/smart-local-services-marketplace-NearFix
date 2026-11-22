@@ -6,6 +6,15 @@ export const createReview = async (req, res) => {
   try {
     const { bookingId, rating, comment } = req.body;
 
+    const numRating = Number(rating);
+    if (!Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ message: 'Rating must be an integer between 1 and 5' });
+    }
+
+    if (!comment || typeof comment !== 'string' || !comment.trim()) {
+      return res.status(400).json({ message: 'Review comment is required' });
+    }
+
     const booking = await Booking.findById(bookingId);
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
@@ -28,8 +37,8 @@ export const createReview = async (req, res) => {
       booking: booking._id,
       customer: req.user._id,
       provider: booking.provider,
-      rating: Number(rating),
-      comment,
+      rating: numRating,
+      comment: comment.trim(),
     });
 
     booking.hasReview = true;

@@ -9,15 +9,17 @@ const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().min(10, 'Valid 10-digit phone number required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['customer', 'provider', 'admin']).default('customer'),
+  role: z.enum(['customer', 'provider'], {
+    errorMap: () => ({ message: "Role must be 'customer' or 'provider'. Admin registration is not permitted." }),
+  }).default('customer'),
   headline: z.string().optional(),
   categories: z.array(z.string()).optional(),
   neighbourhood: z.string().optional(),
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 const generateToken = (user) => {
@@ -31,6 +33,12 @@ const generateToken = (user) => {
 
 export const register = async (req, res) => {
   try {
+    if (req.body.role === 'admin') {
+      return res.status(400).json({
+        message: 'Admin accounts cannot be registered. They are provisioned by system administration.',
+      });
+    }
+
     const data = registerSchema.parse(req.body);
 
     const existingUser = await User.findOne({ email: data.email });
@@ -59,7 +67,7 @@ export const register = async (req, res) => {
         categories: data.categories && data.categories.length > 0 ? data.categories : ['plumber'],
         skills: ['Diagnosis & Repair', 'Emergency Services'],
         serviceAreas: [data.neighbourhood || 'Sector 17, Chandigarh'],
-        verificationStatus: 'verified', // Auto-verified for smooth local testing
+        verificationStatus: 'verified',
         ratingAverage: 4.8,
         ratingCount: 1,
       });
@@ -82,7 +90,7 @@ export const register = async (req, res) => {
       providerProfile,
     });
   } catch (error) {
-    if (error.errors) {
+    if (error.errors && error.errors.length > 0) {
       return res.status(400).json({ message: error.errors[0].message });
     }
     return res.status(500).json({ message: error.message || 'Registration failed' });
@@ -129,7 +137,7 @@ export const login = async (req, res) => {
       providerProfile,
     });
   } catch (error) {
-    if (error.errors) {
+    if (error.errors && error.errors.length > 0) {
       return res.status(400).json({ message: error.errors[0].message });
     }
     return res.status(500).json({ message: 'Sign in failed' });

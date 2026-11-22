@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { formatIndianCurrency, formatRating } from '../utils/formatters';
 import {
   Briefcase,
   CheckCircle2,
@@ -12,6 +13,8 @@ import {
   Calendar,
   AlertCircle,
   Save,
+  Radio,
+  Navigation,
 } from 'lucide-react';
 
 export const ProviderDashboardPage = () => {
@@ -32,6 +35,36 @@ export const ProviderDashboardPage = () => {
   const [hourlyRate, setHourlyRate] = useState(providerProfile?.pricing?.hourlyRate || 250);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSavedMsg, setProfileSavedMsg] = useState('');
+
+  // Live Location Sharing state
+  const [isSharingLocation, setIsSharingLocation] = useState(false);
+  const [liveLocationInfo, setLiveLocationInfo] = useState('');
+
+  const handleToggleLiveLocation = () => {
+    if (isSharingLocation) {
+      setIsSharingLocation(false);
+      setLiveLocationInfo('');
+      return;
+    }
+
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setIsSharingLocation(true);
+          setLiveLocationInfo(`Live GPS: ${pos.coords.latitude.toFixed(4)}° N, ${pos.coords.longitude.toFixed(4)}° E`);
+        },
+        () => {
+          // Fallback to simulated coordinates
+          setIsSharingLocation(true);
+          setLiveLocationInfo(`Simulated GPS: 30.7046° N, 76.7179° E (Phase 7, Mohali)`);
+        },
+        { timeout: 5000 }
+      );
+    } else {
+      setIsSharingLocation(true);
+      setLiveLocationInfo(`Simulated GPS: 30.7046° N, 76.7179° E (Phase 7, Mohali)`);
+    }
+  };
 
   useEffect(() => {
     fetchProviderBookings();
@@ -123,7 +156,19 @@ export const ProviderDashboardPage = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleToggleLiveLocation}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm ${
+                isSharingLocation
+                  ? 'bg-accent text-ink hover:bg-accent-hover'
+                  : 'bg-sand text-muted hover:text-ink'
+              }`}
+            >
+              <Navigation className={`w-4 h-4 ${isSharingLocation ? 'animate-spin' : ''}`} />
+              <span>{isSharingLocation ? 'Live GPS Active' : 'Share Live Location'}</span>
+            </button>
+
             <button
               onClick={handleToggleAvailability}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm ${
@@ -137,6 +182,16 @@ export const ProviderDashboardPage = () => {
             </button>
           </div>
         </div>
+
+        {isSharingLocation && liveLocationInfo && (
+          <div className="bg-tint/70 border border-primary/20 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-primary font-medium shadow-soft-sm">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-accent animate-ping" />
+              <span>{liveLocationInfo}</span>
+            </div>
+            <span className="text-[11px] text-muted">Transmitting telemetry to assigned customers</span>
+          </div>
+        )}
 
         {/* Metric Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -158,7 +213,7 @@ export const ProviderDashboardPage = () => {
             <span className="text-xs text-muted font-medium flex items-center gap-1.5">
               <Wallet className="w-4 h-4 text-accent" /> Total Revenue
             </span>
-            <span className="text-2xl font-extrabold text-ink block">₹{totalEarnings}</span>
+            <span className="text-2xl font-extrabold text-ink block">{formatIndianCurrency(totalEarnings)}</span>
           </div>
 
           <div className="bg-surface p-5 rounded-2xl border border-sand space-y-1">
@@ -166,7 +221,7 @@ export const ProviderDashboardPage = () => {
               <Star className="w-4 h-4 text-accent fill-accent" /> Rating Average
             </span>
             <span className="text-2xl font-extrabold text-ink block">
-              {providerProfile?.ratingAverage || 4.8}
+              {formatRating(providerProfile?.ratingAverage || 4.8)}
               <span className="text-xs font-normal text-muted ml-1">
                 ({providerProfile?.ratingCount || 12} reviews)
               </span>

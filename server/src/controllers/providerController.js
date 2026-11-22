@@ -1,6 +1,8 @@
 import { ProviderProfile } from '../models/ProviderProfile.js';
 import { User } from '../models/User.js';
 import { Review } from '../models/Review.js';
+import { ServiceCategory } from '../models/ServiceCategory.js';
+import { AreaGraphModel } from '../models/AreaGraph.js';
 
 let matchingPipelineInstance = null;
 
@@ -30,11 +32,40 @@ export const searchProviders = async (req, res) => {
       return res.status(400).json({ message: 'Service category is required' });
     }
 
+    const serviceSlug = service.toLowerCase().trim();
+
+    // Validate service slug against ServiceCategory collection
+    const categoryDoc = await ServiceCategory.findOne({ slug: serviceSlug });
+    if (!categoryDoc) {
+      return res.status(400).json({
+        message: `Unknown service category: '${service}'. Available categories include: plumber, electrician, ac-repair, painter, carpenter, home-cleaning, appliance-repair, pest-control, water-purifier, cctv-wifi.`,
+      });
+    }
+
+    // Validate area name if supplied
+    if (area && typeof area === 'string' && area.trim()) {
+      const areaName = area.trim();
+      let isValidArea = false;
+
+      if (matchingPipelineInstance?.areaGraph?.adjacencyList?.has(areaName)) {
+        isValidArea = true;
+      } else {
+        const areaDoc = await AreaGraphModel.findOne({ name: areaName });
+        if (areaDoc) isValidArea = true;
+      }
+
+      if (!isValidArea) {
+        return res.status(400).json({
+          message: `Unknown neighbourhood: '${area}'. Please select a recognized sector or phase across Mohali, Chandigarh, or Panchkula.`,
+        });
+      }
+    }
+
     if (matchingPipelineInstance) {
       const searchCoords = lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
       const results = matchingPipelineInstance.search({
-        serviceCategory: service.toLowerCase(),
-        customerArea: area,
+        serviceCategory: serviceSlug,
+        customerArea: area?.trim(),
         customerCoords: searchCoords,
         urgency,
         budgetMax: budget ? parseFloat(budget) : undefined,
@@ -48,7 +79,7 @@ export const searchProviders = async (req, res) => {
 
     // Fallback direct DB query if pipeline instance is warming up
     const query = {
-      categories: service.toLowerCase(),
+      categories: serviceSlug,
       verificationStatus: 'verified',
     };
 

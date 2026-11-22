@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { AlertCircle, Bell, User, LogOut, Menu, X, ShieldCheck, Briefcase, Calendar } from 'lucide-react';
+import {
+  AlertCircle,
+  Bell,
+  User,
+  LogOut,
+  Menu,
+  X,
+  Search,
+  Calendar,
+  Briefcase,
+  ShieldCheck,
+  Check,
+  ChevronDown,
+} from 'lucide-react';
 import { api } from '../../api/client';
 
 export const Navbar = () => {
@@ -10,6 +23,8 @@ export const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,6 +55,57 @@ export const Navbar = () => {
     }
   };
 
+  const isActive = (path) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0].slice(0, 2).toUpperCase();
+  };
+
+  // Nav links by role
+  const getNavLinks = () => {
+    if (!isAuthenticated) {
+      return [
+        { label: 'Services', path: '/services' },
+        { label: 'How it works', path: '/how-it-works' },
+        { label: 'For professionals', path: '/for-professionals' },
+        { label: 'FAQ', path: '/faq' },
+        { label: 'Contact', path: '/contact' },
+      ];
+    }
+    if (isCustomer) {
+      return [
+        { label: 'Find a pro', path: '/search' },
+        { label: 'My bookings', path: '/customer/bookings' },
+      ];
+    }
+    if (isProvider) {
+      return [
+        { label: 'Dashboard', path: '/provider/dashboard' },
+        { label: 'My jobs', path: '/provider/dashboard' },
+        { label: 'Earnings', path: '/provider/dashboard' },
+      ];
+    }
+    if (isAdmin) {
+      return [
+        { label: 'Dashboard', path: '/admin/dashboard' },
+        { label: 'Providers', path: '/admin/dashboard' },
+        { label: 'Complaints', path: '/admin/dashboard' },
+        { label: 'Users', path: '/admin/dashboard' },
+      ];
+    }
+    return [];
+  };
+
+  const navLinks = getNavLinks();
+
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-200 ${
@@ -51,7 +117,7 @@ export const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group shrink-0">
             <img
               src="/brand/logo.svg"
               alt="NearFix"
@@ -60,43 +126,40 @@ export const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link
-              to="/services"
-              className="text-sm font-medium text-ink/80 hover:text-primary transition-colors"
-            >
-              Services
-            </Link>
-            <Link
-              to="/how-it-works"
-              className="text-sm font-medium text-ink/80 hover:text-primary transition-colors"
-            >
-              How it works
-            </Link>
-            <Link
-              to="/for-professionals"
-              className="text-sm font-medium text-ink/80 hover:text-primary transition-colors"
-            >
-              For professionals
-            </Link>
-            <Link
-              to="/faq"
-              className="text-sm font-medium text-ink/80 hover:text-primary transition-colors"
-            >
-              Help & FAQ
-            </Link>
+          <nav className="hidden md:flex items-center gap-7">
+            {navLinks.map((link, idx) => {
+              const active = isActive(link.path);
+              return (
+                <Link
+                  key={`${link.label}-${idx}`}
+                  to={link.path}
+                  className={`text-sm font-semibold transition-colors relative py-1 ${
+                    active
+                      ? 'text-primary'
+                      : 'text-ink/80 hover:text-primary'
+                  }`}
+                >
+                  {link.label}
+                  {active && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                  )}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Right Action Cluster */}
           <div className="hidden md:flex items-center gap-4">
-            {/* Urgent Request CTA */}
-            <Link
-              to="/search?urgency=emergency&service=plumber"
-              className="emergency-pulse inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold text-emergency bg-emergency/10 hover:bg-emergency hover:text-white transition-all border border-emergency/30"
-            >
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>Urgent Help</span>
-            </Link>
+            {/* Urgent Request CTA (Show for customers & logged out) */}
+            {(!isAuthenticated || isCustomer) && (
+              <Link
+                to="/search?urgency=emergency&service=plumber"
+                className="emergency-pulse inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-emergency bg-emergency/10 hover:bg-emergency hover:text-white transition-all border border-emergency/30"
+              >
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Urgent Help</span>
+              </Link>
+            )}
 
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
@@ -138,53 +201,78 @@ export const Navbar = () => {
                   )}
                 </div>
 
-                {/* Role Specific Quick Jump */}
-                {isCustomer && (
-                  <Link
-                    to="/customer/bookings"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-tint rounded-lg hover:bg-primary hover:text-white transition-all"
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>My Bookings</span>
-                  </Link>
-                )}
-
-                {isProvider && (
-                  <Link
-                    to="/provider/dashboard"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-tint rounded-lg hover:bg-primary hover:text-white transition-all"
-                  >
-                    <Briefcase className="w-3.5 h-3.5" />
-                    <span>Provider Portal</span>
-                  </Link>
-                )}
-
-                {isAdmin && (
-                  <Link
-                    to="/admin/dashboard"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-800 bg-emerald-100 rounded-lg hover:bg-emerald-800 hover:text-white transition-all"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Admin Panel</span>
-                  </Link>
-                )}
-
-                {/* Profile Pill & Logout */}
-                <div className="flex items-center gap-2 pl-2 border-l border-sand">
-                  <div className="text-right">
-                    <p className="text-xs font-semibold text-ink leading-tight">{user.name}</p>
-                    <p className="text-[10px] text-muted capitalize">{user.role}</p>
-                  </div>
+                {/* Profile menu with Avatar or Initials */}
+                <div className="relative">
                   <button
-                    onClick={() => {
-                      logout();
-                      navigate('/');
-                    }}
-                    title="Log out"
-                    className="p-1.5 rounded-lg text-muted hover:text-emergency hover:bg-emergency/10 transition-colors"
+                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                    className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-sand/30 transition-colors"
                   >
-                    <LogOut className="w-4 h-4" />
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-8 h-8 rounded-full object-cover border border-sand"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-primary text-white font-bold text-xs flex items-center justify-center border border-primary/20">
+                        {getInitials(user.name)}
+                      </div>
+                    )}
+                    <div className="text-left hidden lg:block">
+                      <p className="text-xs font-bold text-ink leading-tight">{user.name}</p>
+                      <p className="text-[10px] text-muted capitalize">{user.role}</p>
+                    </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-muted" />
                   </button>
+
+                  {profileDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-surface rounded-xl shadow-soft-lg border border-sand py-1.5 z-50">
+                      <div className="px-3 py-2 border-b border-sand/60">
+                        <p className="text-xs font-bold text-ink">{user.name}</p>
+                        <p className="text-[11px] text-muted truncate">{user.email}</p>
+                      </div>
+
+                      {isCustomer && (
+                        <Link
+                          to="/customer/bookings"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="block px-3 py-2 text-xs font-semibold text-ink hover:bg-tint"
+                        >
+                          My Bookings
+                        </Link>
+                      )}
+                      {isProvider && (
+                        <Link
+                          to="/provider/dashboard"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="block px-3 py-2 text-xs font-semibold text-ink hover:bg-tint"
+                        >
+                          Provider Dashboard
+                        </Link>
+                      )}
+                      {isAdmin && (
+                        <Link
+                          to="/admin/dashboard"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="block px-3 py-2 text-xs font-semibold text-ink hover:bg-tint"
+                        >
+                          Admin Console
+                        </Link>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setProfileDropdownOpen(false);
+                          logout();
+                          navigate('/');
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-emergency hover:bg-emergency/10 flex items-center gap-2 border-t border-sand/40"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Log Out</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -197,7 +285,7 @@ export const Navbar = () => {
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-lg shadow-sm transition-all"
+                  className="px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl shadow-sm transition-all"
                 >
                   Sign up
                 </Link>
@@ -206,14 +294,16 @@ export const Navbar = () => {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center gap-3">
-            <Link
-              to="/search?urgency=emergency&service=plumber"
-              className="emergency-pulse inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-emergency bg-emergency/10"
-            >
-              <AlertCircle className="w-3 h-3" />
-              <span>Urgent</span>
-            </Link>
+          <div className="md:hidden flex items-center gap-2">
+            {(!isAuthenticated || isCustomer) && (
+              <Link
+                to="/search?urgency=emergency&service=plumber"
+                className="emergency-pulse inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-emergency bg-emergency/10"
+              >
+                <AlertCircle className="w-3 h-3" />
+                <span>Urgent</span>
+              </Link>
+            )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 text-ink hover:text-primary"
@@ -225,93 +315,65 @@ export const Navbar = () => {
 
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-sand bg-surface rounded-b-2xl px-2 space-y-3">
-            <Link
-              to="/services"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-ink hover:bg-tint"
-            >
-              Services
-            </Link>
-            <Link
-              to="/how-it-works"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-ink hover:bg-tint"
-            >
-              How it works
-            </Link>
-            <Link
-              to="/for-professionals"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-ink hover:bg-tint"
-            >
-              For professionals
-            </Link>
-            <Link
-              to="/faq"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-ink hover:bg-tint"
-            >
-              Help & FAQ
-            </Link>
+          <div className="md:hidden py-4 border-t border-sand bg-surface rounded-b-2xl px-3 space-y-2">
+            {navLinks.map((link, idx) => {
+              const active = isActive(link.path);
+              return (
+                <Link
+                  key={`mobile-${link.label}-${idx}`}
+                  to={link.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    active ? 'bg-tint text-primary font-bold' : 'text-ink hover:bg-sand/30'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
 
             <div className="pt-3 border-t border-sand">
               {isAuthenticated ? (
                 <div className="space-y-2">
-                  <p className="px-3 text-xs text-muted">
-                    Signed in as <span className="font-semibold text-ink">{user.name}</span> ({user.role})
-                  </p>
-                  {isCustomer && (
-                    <Link
-                      to="/customer/bookings"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block px-3 py-2 rounded-lg text-sm font-medium text-primary bg-tint"
-                    >
-                      My Bookings
-                    </Link>
-                  )}
-                  {isProvider && (
-                    <Link
-                      to="/provider/dashboard"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block px-3 py-2 rounded-lg text-sm font-medium text-primary bg-tint"
-                    >
-                      Provider Dashboard
-                    </Link>
-                  )}
-                  {isAdmin && (
-                    <Link
-                      to="/admin/dashboard"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block px-3 py-2 rounded-lg text-sm font-medium text-emerald-800 bg-emerald-100"
-                    >
-                      Admin Panel
-                    </Link>
-                  )}
+                  <div className="flex items-center gap-2 px-3 py-1">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-primary text-white font-bold text-xs flex items-center justify-center">
+                        {getInitials(user.name)}
+                      </div>
+                    )}
+                    <div className="text-xs">
+                      <span className="font-bold text-ink block">{user.name}</span>
+                      <span className="text-muted capitalize">{user.role}</span>
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => {
                       logout();
                       setMobileMenuOpen(false);
                       navigate('/');
                     }}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-emergency hover:bg-emergency/10"
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-emergency hover:bg-emergency/10 flex items-center gap-2"
                   >
-                    Log out
+                    <LogOut className="w-4 h-4" />
+                    <span>Log Out</span>
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 pt-1">
                   <Link
                     to="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="w-full text-center py-2 text-sm font-semibold text-ink border border-sand rounded-lg"
+                    className="w-full text-center py-2.5 text-sm font-semibold text-ink border border-sand rounded-xl bg-bg"
                   >
                     Log in
                   </Link>
                   <Link
                     to="/register"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="w-full text-center py-2 text-sm font-semibold text-white bg-primary rounded-lg"
+                    className="w-full text-center py-2.5 text-sm font-semibold text-white bg-primary rounded-xl"
                   >
                     Sign up
                   </Link>

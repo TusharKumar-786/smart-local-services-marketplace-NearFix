@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { formatIndianCurrency, formatRating } from '../utils/formatters';
 import {
   Calendar,
   Clock,
@@ -13,6 +14,7 @@ import {
   CreditCard,
   MessageSquare,
   ShieldAlert,
+  Navigation,
 } from 'lucide-react';
 
 export const CustomerBookingsPage = () => {
@@ -228,7 +230,7 @@ export const CustomerBookingsPage = () => {
                         Scheduled for: <strong className="text-ink">{new Date(b.scheduledFor).toLocaleDateString()}</strong>
                       </span>
                       <div className="flex items-center sm:justify-end gap-2 mt-1">
-                        <span className="text-sm font-extrabold text-ink">₹{b.price}</span>
+                        <span className="text-sm font-extrabold text-ink">{formatIndianCurrency(b.price)}</span>
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                             b.paymentStatus === 'paid'
@@ -296,6 +298,17 @@ export const CustomerBookingsPage = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {/* Live Tracking link if accepted or in_progress */}
+                      {['accepted', 'in_progress'].includes(b.status) && (
+                        <Link
+                          to={`/track/${b._id}`}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary-dark transition-all flex items-center gap-1.5 shadow-sm"
+                        >
+                          <Navigation className="w-3.5 h-3.5 text-accent animate-pulse" />
+                          <span>Track Technician</span>
+                        </Link>
+                      )}
+
                       {/* Pay button if pending */}
                       {b.paymentStatus === 'pending' && b.status !== 'cancelled' && (
                         <Link

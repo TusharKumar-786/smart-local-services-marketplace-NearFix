@@ -1,37 +1,71 @@
+import mongoose from 'mongoose';
+import { z } from 'zod';
 import { Booking } from '../models/Booking.js';
 import { ProviderProfile } from '../models/ProviderProfile.js';
 import { Notification } from '../models/Notification.js';
 
+const createBookingSchema = z.object({
+  providerId: z.string().refine((val) => mongoose.Types.ObjectId.isValid(val), {
+    message: 'Invalid provider ID',
+  }),
+  category: z.string().min(1, 'Category is required'),
+  serviceName: z.string().optional(),
+  address: z.string().min(1, 'Address is required'),
+  neighbourhood: z.string().optional(),
+  urgency: z.enum(['normal', 'emergency']).default('normal'),
+  scheduledFor: z.coerce.date().refine((d) => d.getTime() > Date.now(), {
+    message: 'Scheduled date and time must be in the future',
+  }),
+  problemDescription: z.string().min(1, 'Problem description is required'),
+  price: z.any().optional(), // Ignored: computed server-side
+});
+
+const ALLOWED_TRANSITIONS = {
+  requested: ['accepted', 'rejected', 'cancelled'],
+  accepted: ['in_progress', 'cancelled'],
+  in_progress: ['completed'],
+  completed: [],
+  rejected: [],
+  cancelled: [],
+};
+
 export const createBooking = async (req, res) => {
   try {
+    const parseResult = createBookingSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({
+        message: parseResult.error.errors[0]?.message || 'Validation failed for booking request',
+      });
+    }
+
     const {
       providerId,
       category,
       serviceName,
       address,
       neighbourhood,
-      urgency = 'normal',
+      urgency,
       scheduledFor,
       problemDescription,
-      price,
-    } = req.body;
+    } = parseResult.data;
 
     const provider = await ProviderProfile.findById(providerId);
     if (!provider) {
       return res.status(404).json({ message: 'Technician not found' });
     }
 
-    const bookingPrice = price || provider.pricing?.visitCharge || 350;
+    // Server-computed pricing: Ignore client price
+    const bookingPrice = provider.pricing?.visitCharge || 350;
 
     const booking = await Booking.create({
       customer: req.user._id,
       provider: provider._id,
       category,
-      serviceName: serviceName || 'General Service',
+      serviceName: serviceName || `${category.charAt(0).toUpperCase() + category.slice(1)} Service`,
       address,
       neighbourhood: neighbourhood || req.user.neighbourhood || 'Sector 17, Chandigarh',
       urgency,
-      scheduledFor: scheduledFor ? new Date(scheduledFor) : new Date(Date.now() + 3600000),
+      scheduledFor,
       problemDescription,
       price: bookingPrice,
       status: 'requested',
@@ -55,6 +89,10 @@ export const createBooking = async (req, res) => {
 
     return res.status(201).json({ message: 'Booking requested successfully', booking });
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      const firstKey = Object.keys(error.errors)[0];
+      return res.status(400).json({ message: error.errors[firstKey]?.message || 'Invalid booking data' });
+    }
     return res.status(500).json({ message: error.message || 'Failed to create booking' });
   }
 };
@@ -93,6 +131,10 @@ export const getProviderBookings = async (req, res) => {
 
 export const getBookingById = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid booking ID' });
+    }
+
     const booking = await Booking.findById(req.params.id)
       .populate('customer', 'name phone email avatar neighbourhood')
       .populate({
@@ -122,15 +164,59 @@ export const getBookingById = async (req, res) => {
 export const updateBookingStatus = async (req, res) => {
   try {
     const { status, note } = req.body;
-    const booking = await Booking.findById(req.params.id).populate('provider');
 
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid booking ID' });
+    }
+
+    const booking = await Booking.findById(req.params.id).populate('provider');
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
     const validStatuses = ['requested', 'accepted', 'rejected', 'in_progress', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+      return res.status(400).json({ message: `Invalid status: '${status}'` });
+    }
+
+    // Authorization checks
+    const isCustomer = String(booking.customer) === String(req.user._id);
+    const isProvider = String(booking.provider?.user) === String(req.user._id);
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isCustomer && !isProvider && !isAdmin) {
+      return res.status(403).json({ message: 'Not authorized to update this booking' });
+    }
+
+    // Customer authorization rule: customer may ONLY set cancelled
+    if (isCustomer && !isAdmin && status !== 'cancelled') {
+      return res.status(403).json({ message: 'Customers may only cancel a booking' });
+    }
+
+    // Provider authorization rule: provider may set accepted, rejected, in_progress, completed
+    if (isProvider && !isAdmin && !['accepted', 'rejected', 'in_progress', 'completed'].includes(status)) {
+      return res.status(403).json({
+        message: 'Providers may only accept, reject, start, or complete a booking',
+      });
+    }
+
+    // State machine validation
+    const currentStatus = booking.status;
+    const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
+
+    // Admins can override transitions if needed, but state machine applies to regular users
+    if (!isAdmin && !allowed.includes(status)) {
+      return res.status(400).json({
+        message: `Invalid status transition from '${currentStatus}' to '${status}'.`,
+      });
+    }
+
+    // Provider earnings added only ONCE on first transition to completed
+    const wasEverCompleted = booking.statusHistory?.some((h) => h.status === 'completed') || booking.status === 'completed';
+    if (status === 'completed' && !wasEverCompleted) {
+      await ProviderProfile.findByIdAndUpdate(booking.provider._id, {
+        $inc: { earningsTotal: booking.price },
+      });
     }
 
     booking.status = status;
@@ -139,13 +225,6 @@ export const updateBookingStatus = async (req, res) => {
       note: note || `Status transitioned to ${status}`,
       timestamp: new Date(),
     });
-
-    if (status === 'completed') {
-      // Accumulate earnings for provider
-      await ProviderProfile.findByIdAndUpdate(booking.provider._id, {
-        $inc: { earningsTotal: booking.price },
-      });
-    }
 
     await booking.save();
 
@@ -164,6 +243,6 @@ export const updateBookingStatus = async (req, res) => {
 
     return res.json({ message: 'Booking status updated', booking });
   } catch (error) {
-    return res.status(500).json({ message: 'Failed to update status' });
+    return res.status(500).json({ message: error.message || 'Failed to update status' });
   }
 };

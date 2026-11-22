@@ -1,6 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -14,7 +17,34 @@ import { Complaint } from '../models/Complaint.js';
 import { Notification } from '../models/Notification.js';
 import { AreaGraphModel } from '../models/AreaGraph.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/nearfix';
+
+// Helper for deterministic avatar fallback
+function getProviderAvatar(name, index) {
+  const fileName = `provider-${String(index).padStart(3, '0')}.webp`;
+  const localFile = path.resolve(__dirname, `../../../client/public/images/providers/${fileName}`);
+  if (fs.existsSync(localFile)) {
+    return `/images/providers/${fileName}`;
+  }
+
+  // Deterministic SVG data URI with distinct brand palette colours
+  const colors = [
+    '#0F5C63', '#166269', '#1E727A', '#F2A32C', '#D98A19',
+    '#2E8B57', '#25794B', '#379B63', '#B85D19', '#9C4D15',
+    '#2D4B59', '#3D6273', '#4E7385', '#7A4833', '#8C523A',
+    '#3B5F58', '#4A756D', '#2B5750', '#855938', '#6E482C',
+  ];
+  const bg = colors[(index * 7 + 3) % colors.length];
+  const parts = name.trim().split(/\s+/);
+  const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].slice(0, 2).toUpperCase();
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="50" fill="${bg}"/><circle cx="50" cy="50" r="47" stroke="#FAF7F2" stroke-width="2" stroke-opacity="0.3" fill="none"/><text x="50" y="58" font-family="'Plus Jakarta Sans', Manrope, sans-serif" font-size="34" font-weight="700" fill="#FAF7F2" text-anchor="middle" letter-spacing="1">${initials}</text></svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
 
 // 1. 10 Service Categories
 const CATEGORIES = [
@@ -110,7 +140,7 @@ const CATEGORIES = [
   },
 ];
 
-// 2. 32 Tricity Area Nodes (Mohali, Chandigarh, Panchkula) with realistic road edges
+// 2. 32 Tricity Area Nodes
 const TRICITY_AREAS = [
   // Chandigarh (12)
   { name: 'Sector 17, Chandigarh', region: 'Chandigarh', coordinates: { lat: 30.7415, lng: 76.7794 } },
@@ -151,9 +181,7 @@ const TRICITY_AREAS = [
   { name: 'Industrial Area, Panchkula', region: 'Panchkula', coordinates: { lat: 30.6720, lng: 76.8610 } },
 ];
 
-// Connected road corridors between areas
 const ROAD_EDGES = [
-  // Chandigarh internal
   ['Sector 17, Chandigarh', 'Sector 22, Chandigarh', 1.8],
   ['Sector 22, Chandigarh', 'Sector 35, Chandigarh', 2.1],
   ['Sector 35, Chandigarh', 'Sector 43, Chandigarh', 2.4],
@@ -166,8 +194,6 @@ const ROAD_EDGES = [
   ['Sector 43, Chandigarh', 'Sector 46, Chandigarh', 2.8],
   ['Sector 15, Chandigarh', 'Sector 38, Chandigarh', 2.7],
   ['Sector 26, Chandigarh', 'Mani Majra, Chandigarh', 3.8],
-
-  // Mohali internal
   ['Phase 1, Mohali', 'Phase 5, Mohali', 2.3],
   ['Phase 5, Mohali', 'Phase 3B2, Mohali', 1.6],
   ['Phase 3B2, Mohali', 'Phase 7, Mohali', 1.4],
@@ -179,8 +205,6 @@ const ROAD_EDGES = [
   ['Sector 68, Mohali', 'Sector 79, Mohali', 2.2],
   ['Sector 79, Mohali', 'Sector 82, Mohali', 3.2],
   ['Phase 5, Mohali', 'Kharar Road, Mohali', 4.5],
-
-  // Panchkula internal
   ['Sector 5, Panchkula', 'Sector 7, Panchkula', 1.2],
   ['Sector 7, Panchkula', 'Sector 11, Panchkula', 1.5],
   ['Sector 11, Panchkula', 'Sector 14, Panchkula', 1.3],
@@ -188,8 +212,6 @@ const ROAD_EDGES = [
   ['Sector 5, Panchkula', 'Sector 4, Panchkula', 1.4],
   ['Sector 5, Panchkula', 'MDC Sector 4, Panchkula', 2.8],
   ['Sector 14, Panchkula', 'Industrial Area, Panchkula', 1.9],
-
-  // Inter-city cross bridges (Chandigarh - Mohali - Panchkula)
   ['Sector 43, Chandigarh', 'Phase 7, Mohali', 3.2],
   ['Sector 35, Chandigarh', 'Phase 3B2, Mohali', 3.8],
   ['Sector 38, Chandigarh', 'Phase 1, Mohali', 3.1],
@@ -200,30 +222,149 @@ const ROAD_EDGES = [
   ['Phase 11, Mohali', 'Sector 20, Panchkula', 7.5],
 ];
 
-// Realistic Indian technician pool data
-const INDIAN_FIRST_NAMES = [
-  'Rajesh', 'Aman', 'Suresh', 'Manpreet', 'Harpreet', 'Ravi', 'Deepak', 'Vikram',
-  'Sunil', 'Arun', 'Pankaj', 'Kuldeep', 'Jaswinder', 'Gurpreet', 'Sanjay', 'Mukesh',
-  'Rakesh', 'Rohit', 'Dharmendra', 'Manoj', 'Ashok', 'Suraj', 'Satish', 'Balwinder',
-  'Jagdish', 'Naveen', 'Anil', 'Amit', 'Devender', 'Paramjit', 'Gaurav', 'Tarun'
-];
-
-const INDIAN_LAST_NAMES = [
-  'Kumar', 'Singh', 'Verma', 'Sharma', 'Gupta', 'Saini', 'Bhardwaj', 'Chauhan',
-  'Mishra', 'Yadav', 'Pandey', 'Dhiman', 'Thakur', 'Kashyap', 'Rawat', 'Panchal'
-];
-
-const REAL_PORTRAITS = [
-  'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80',
+// 141 Unique Indian Provider Names with Matched Genders
+const UNIQUE_PROVIDER_NAMES = [
+  { name: 'Rajesh Sharma', gender: 'male' }, // Demo Provider #1
+  { name: 'Manpreet Singh', gender: 'male' },
+  { name: 'Aman Verma', gender: 'male' },
+  { name: 'Kuldeep Saini', gender: 'male' },
+  { name: 'Suresh Kumar', gender: 'male' },
+  { name: 'Sunita Devi', gender: 'female' },
+  { name: 'Ravi Bhardwaj', gender: 'male' },
+  { name: 'Deepak Chauhan', gender: 'male' },
+  { name: 'Pooja Rani', gender: 'female' },
+  { name: 'Vikram Thakur', gender: 'male' },
+  { name: 'Harpreet Kaur', gender: 'female' },
+  { name: 'Sunil Panchal', gender: 'male' },
+  { name: 'Arun Yadav', gender: 'male' },
+  { name: 'Rekha Sharma', gender: 'female' },
+  { name: 'Pankaj Mishra', gender: 'male' },
+  { name: 'Jaswinder Singh', gender: 'male' },
+  { name: 'Gurpreet Singh', gender: 'male' },
+  { name: 'Anita Verma', gender: 'female' },
+  { name: 'Sanjay Rawat', gender: 'male' },
+  { name: 'Mukesh Kashyap', gender: 'male' },
+  { name: 'Priya Saini', gender: 'female' },
+  { name: 'Rakesh Dhiman', gender: 'male' },
+  { name: 'Rohit Pandey', gender: 'male' },
+  { name: 'Neha Gupta', gender: 'female' },
+  { name: 'Dharmendra Yadav', gender: 'male' },
+  { name: 'Manoj Kumar', gender: 'male' },
+  { name: 'Ashok Sharma', gender: 'male' },
+  { name: 'Suraj Bhan', gender: 'male' },
+  { name: 'Satish Chand', gender: 'male' },
+  { name: 'Balwinder Singh', gender: 'male' },
+  { name: 'Jagdish Prasad', gender: 'male' },
+  { name: 'Naveen Joshi', gender: 'male' },
+  { name: 'Anil Garg', gender: 'male' },
+  { name: 'Amit Singla', gender: 'male' },
+  { name: 'Devender Negi', gender: 'male' },
+  { name: 'Paramjit Singh', gender: 'male' },
+  { name: 'Gaurav Mittal', gender: 'male' },
+  { name: 'Tarun Bansal', gender: 'male' },
+  { name: 'Simranjeet Kaur', gender: 'female' },
+  { name: 'Kavita Chawla', gender: 'female' },
+  { name: 'Virender Gill', gender: 'male' },
+  { name: 'Inderjit Sidhu', gender: 'male' },
+  { name: 'Bikramjit Sandhu', gender: 'male' },
+  { name: 'Geeta Rani', gender: 'female' },
+  { name: 'Joginder Pal', gender: 'male' },
+  { name: 'Sarabjit Dhillon', gender: 'male' },
+  { name: 'Manish Tyagi', gender: 'male' },
+  { name: 'Meena Kumari', gender: 'female' },
+  { name: 'Hemant Goel', gender: 'male' },
+  { name: 'Bhupinder Brar', gender: 'male' },
+  { name: 'Jaswant Khatri', gender: 'male' },
+  { name: 'Saroj Bala', gender: 'female' },
+  { name: 'Subhash Chander', gender: 'male' },
+  { name: 'Kamal Nayan', gender: 'male' },
+  { name: 'Raman Deep', gender: 'male' },
+  { name: 'Jyoti Sharma', gender: 'female' },
+  { name: 'Mohan Lal', gender: 'male' },
+  { name: 'Satnam Randhawa', gender: 'male' },
+  { name: 'Tejinder Bawa', gender: 'male' },
+  { name: 'Suman Lata', gender: 'female' },
+  { name: 'Chander Prakash', gender: 'male' },
+  { name: 'Naresh Sethi', gender: 'male' },
+  { name: 'Gurcharan Aulakh', gender: 'male' },
+  { name: 'Rajinder Bassi', gender: 'male' },
+  { name: 'Anju Bala', gender: 'female' },
+  { name: 'Satpal Narang', gender: 'male' },
+  { name: 'Trilochan Cheema', gender: 'male' },
+  { name: 'Vijay Anand', gender: 'male' },
+  { name: 'Ritu Aggarwal', gender: 'female' },
+  { name: 'Davinder Sohal', gender: 'male' },
+  { name: 'Lalit Mohan', gender: 'male' },
+  { name: 'Dinesh Rana', gender: 'male' },
+  { name: 'Shashi Bhushan', gender: 'male' },
+  { name: 'Vandana Sen', gender: 'female' },
+  { name: 'Kewal Krishan', gender: 'male' },
+  { name: 'Brij Mohan', gender: 'male' },
+  { name: 'Rajneesh Sood', gender: 'male' },
+  { name: 'Kiran Deep', gender: 'female' },
+  { name: 'Swaran Singh', gender: 'male' },
+  { name: 'Amritpal Grewal', gender: 'male' },
+  { name: 'Hardip Virk', gender: 'male' },
+  { name: 'Nirmal Toor', gender: 'male' },
+  { name: 'Mamta Jain', gender: 'female' },
+  { name: 'Sanjeev Bedi', gender: 'male' },
+  { name: 'Pawan Khurana', gender: 'male' },
+  { name: 'Jitender Mathur', gender: 'male' },
+  { name: 'Shweta Pathak', gender: 'female' },
+  { name: 'Anand Swaroop', gender: 'male' },
+  { name: 'Charanjit Uppal', gender: 'male' },
+  { name: 'Avtar Bajwa', gender: 'male' },
+  { name: 'Balkar Deol', gender: 'male' },
+  { name: 'Sangeeta Malik', gender: 'female' },
+  { name: 'Daler Mann', gender: 'male' },
+  { name: 'Fateh Dhaliwal', gender: 'male' },
+  { name: 'Gagandeep Kahlon', gender: 'male' },
+  { name: 'Harpal Malhi', gender: 'male' },
+  { name: 'Rashmi Kapoor', gender: 'female' },
+  { name: 'Ishwar Dayal', gender: 'male' },
+  { name: 'Jaspal Pannu', gender: 'male' },
+  { name: 'Karamjit Tiwana', gender: 'male' },
+  { name: 'Lakhwinder Johal', gender: 'male' },
+  { name: 'Manmohan Sahota', gender: 'male' },
+  { name: 'Navdeep Waraich', gender: 'male' },
+  { name: 'Omkar Nath', gender: 'male' },
+  { name: 'Prabhjot Bains', gender: 'male' },
+  { name: 'Rupinder Mahal', gender: 'male' },
+  { name: 'Surjit Mangat', gender: 'male' },
+  { name: 'Tarlochan Kang', gender: 'male' },
+  { name: 'Ujjal Dosanjh', gender: 'male' },
+  { name: 'Varinder Atwal', gender: 'male' },
+  { name: 'Yadwinder Ghuman', gender: 'male' },
+  { name: 'Zorawar Gill', gender: 'male' },
+  { name: 'Ajitabh Shrivastav', gender: 'male' },
+  { name: 'Birender Tomar', gender: 'male' },
+  { name: 'Chirag Pareek', gender: 'male' },
+  { name: 'Devrat Upadhyay', gender: 'male' },
+  { name: 'Eklavya Shukla', gender: 'male' },
+  { name: 'Girish Chandra', gender: 'male' },
+  { name: 'Harshit Saxena', gender: 'male' },
+  { name: 'Indrajeet Tripathi', gender: 'male' },
+  { name: 'Jatin Dixit', gender: 'male' },
+  { name: 'Kanishk Bajpai', gender: 'male' },
+  { name: 'Lokendra Purohit', gender: 'male' },
+  { name: 'Mayank Awasthi', gender: 'male' },
+  { name: 'Nikhil Chaubey', gender: 'male' },
+  { name: 'Ojasvi Chaturvedi', gender: 'male' },
+  { name: 'Prashant Tiwari', gender: 'male' },
+  { name: 'Rajnish Dubey', gender: 'male' },
+  { name: 'Siddharth Trivedi', gender: 'male' },
+  { name: 'Tanmay Bhattacharya', gender: 'male' },
+  { name: 'Utkarsh Goswami', gender: 'male' },
+  { name: 'Vaibhav Kulshrestha', gender: 'male' },
+  { name: 'Yashwardhan Mathur', gender: 'male' },
+  { name: 'Abhimanyu Ojha', gender: 'male' },
+  { name: 'Bhupesh Pandey', gender: 'male' },
+  { name: 'Chandresh Shukla', gender: 'male' },
+  { name: 'Divyansh Agnihotri', gender: 'male' },
+  { name: 'Gyanendra Dwivedi', gender: 'male' },
+  { name: 'Himanshu Misra', gender: 'male' },
+  { name: 'Jaideep Gautam', gender: 'male' },
+  { name: 'Krishnakant Upadhyay', gender: 'male' },
 ];
 
 const CUSTOMER_REVIEW_COMMENTS = [
@@ -262,7 +403,6 @@ export const seedDatabase = async () => {
 
     console.log('2. Seeding 32 Area Graph Nodes and Road Network...');
     const areaGraphDocs = TRICITY_AREAS.map((area) => {
-      // Find all edges connected to this area
       const edges = [];
       for (const [u, v, dist] of ROAD_EDGES) {
         if (u === area.name) edges.push({ to: v, distanceKm: dist });
@@ -291,12 +431,12 @@ export const seedDatabase = async () => {
       passwordHash: customerHash,
       role: 'customer',
       status: 'active',
-      avatar: REAL_PORTRAITS[0],
+      avatar: getProviderAvatar('Arjun Mehra', 1),
       neighbourhood: 'Phase 7, Mohali',
       address: 'House #1428, Phase 7, Near Rose Garden, Mohali',
     });
 
-    // Demo Provider
+    // Demo Provider (#1)
     const demoProviderUser = await User.create({
       name: 'Rajesh Sharma',
       email: 'rajesh.electric@nearfix.in',
@@ -304,7 +444,7 @@ export const seedDatabase = async () => {
       passwordHash: providerHash,
       role: 'provider',
       status: 'active',
-      avatar: REAL_PORTRAITS[1],
+      avatar: getProviderAvatar('Rajesh Sharma', 1),
       neighbourhood: 'Sector 35, Chandigarh',
       address: 'SCO 214, Sector 35-C, Chandigarh',
     });
@@ -328,10 +468,7 @@ export const seedDatabase = async () => {
       ratingAverage: 4.9,
       ratingCount: 38,
       earningsTotal: 48500,
-      photos: [
-        'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
-      ],
+      photos: [getProviderAvatar('Rajesh Sharma', 1)],
     });
 
     // Demo Admin
@@ -342,64 +479,68 @@ export const seedDatabase = async () => {
       passwordHash: adminHash,
       role: 'admin',
       status: 'active',
-      avatar: REAL_PORTRAITS[4],
+      avatar: getProviderAvatar('Simran Kaur', 2),
       neighbourhood: 'Sector 17, Chandigarh',
     });
 
-    console.log('4. Generating 140+ Authentic Tradespeople across Tricity...');
+    console.log('4. Generating 140+ Unique Indian Tradespeople across Tricity...');
     const allProviders = [demoProviderProfile];
     const customerUserIds = [demoCustomer._id];
 
     // Seed 40 customer accounts for realistic reviews
     for (let i = 0; i < 40; i++) {
-      const fName = INDIAN_FIRST_NAMES[i % INDIAN_FIRST_NAMES.length];
-      const lName = INDIAN_LAST_NAMES[(i * 3) % INDIAN_LAST_NAMES.length];
       const area = TRICITY_AREAS[i % TRICITY_AREAS.length];
+      const custName = `Resident ${UNIQUE_PROVIDER_NAMES[100 + (i % 40)].name}`;
       const custUser = await User.create({
-        name: `${fName} ${lName}`,
-        email: `customer.${fName.toLowerCase()}.${i + 1}@nearfix.in`,
+        name: custName,
+        email: `customer.${i + 1}@nearfix.in`,
         phone: `98${Math.floor(10000000 + Math.random() * 90000000)}`,
         passwordHash: customerHash,
         role: 'customer',
         status: 'active',
-        avatar: REAL_PORTRAITS[i % REAL_PORTRAITS.length],
+        avatar: getProviderAvatar(custName, 80 + i),
         neighbourhood: area.name,
         address: `House #${100 + i * 14}, ${area.name}`,
       });
       customerUserIds.push(custUser._id);
     }
 
-    // Seed 140 providers
-    for (let i = 0; i < 140; i++) {
-      const fName = INDIAN_FIRST_NAMES[(i * 2 + 5) % INDIAN_FIRST_NAMES.length];
-      const lName = INDIAN_LAST_NAMES[(i * 5 + 2) % INDIAN_LAST_NAMES.length];
-      const category = CATEGORIES[i % CATEGORIES.length];
-      const secondaryCategory = CATEGORIES[(i + 3) % CATEGORIES.length];
-      const area = TRICITY_AREAS[i % TRICITY_AREAS.length];
-      const nearbyArea = TRICITY_AREAS[(i + 1) % TRICITY_AREAS.length];
+    // Seed remaining 140 providers (total 141 with demo provider)
+    for (let i = 1; i <= 140; i++) {
+      const providerData = UNIQUE_PROVIDER_NAMES[i] || { name: `Technician ${i}`, gender: 'male' };
+      const primaryCategory = CATEGORIES[(i - 1) % CATEGORIES.length];
+      const secondaryCategory = CATEGORIES[(i + 2) % CATEGORIES.length];
+      const area = TRICITY_AREAS[(i - 1) % TRICITY_AREAS.length];
+      const nearbyArea = TRICITY_AREAS[i % TRICITY_AREAS.length];
+      const avatarUrl = getProviderAvatar(providerData.name, i + 1);
 
       const pUser = await User.create({
-        name: `${fName} ${lName}`,
-        email: `pro.${fName.toLowerCase()}.${i + 1}@nearfix.in`,
+        name: providerData.name,
+        email: `pro.${providerData.name.toLowerCase().replace(/[^a-z]/g, '')}.${i}@nearfix.in`,
         phone: `97${Math.floor(10000000 + Math.random() * 90000000)}`,
         passwordHash: providerHash,
         role: 'provider',
-        status: i === 138 ? 'blocked' : 'active', // 1 blocked for admin moderation demo
-        avatar: REAL_PORTRAITS[i % REAL_PORTRAITS.length],
+        status: i === 138 ? 'blocked' : 'active',
+        avatar: avatarUrl,
         neighbourhood: area.name,
         address: `SCO #${20 + (i % 80)}, ${area.name}`,
       });
 
       const exp = 3 + (i % 18);
       const rating = Math.round((4.0 + (i % 11) * 0.1) * 10) / 10;
-      const visitCharge = category.startingPrice + (i % 4) * 50;
+      // Pricing derived from primaryCategory starting price
+      const visitCharge = primaryCategory.startingPrice + (i % 3) * 50;
+
+      // Headline and skills strictly derived from primaryCategory
+      const headline = `${primaryCategory.name} & Repair Specialist (${exp} Yrs Exp)`;
+      const skills = primaryCategory.popularSkills.slice(0, 3 + (i % 3));
 
       const profile = await ProviderProfile.create({
         user: pUser._id,
-        headline: `${category.name} & Repair Specialist (${exp} Yrs Exp)`,
-        bio: `Trusted local service professional in ${area.name}. Providing prompt turnaround, clean workmanship, and genuine spare parts.`,
-        categories: [category.slug, secondaryCategory.slug],
-        skills: category.popularSkills.slice(0, 3 + (i % 3)),
+        headline,
+        bio: `Trusted local ${primaryCategory.name.toLowerCase()} in ${area.name}. Providing prompt turnaround, clean workmanship, and genuine spare parts with clear upfront quotes.`,
+        categories: [primaryCategory.slug, secondaryCategory.slug],
+        skills,
         experienceYears: exp,
         serviceAreas: [area.name, nearbyArea.name],
         location: {
@@ -416,15 +557,13 @@ export const seedDatabase = async () => {
         availability: {
           days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
           hours: '8:30 AM - 8:30 PM',
-          isAvailableNow: i % 4 !== 0, // ~75% currently available
+          isAvailableNow: i % 4 !== 0,
         },
-        verificationStatus: i === 139 ? 'pending' : 'verified', // 1 pending for admin verification test
+        verificationStatus: i === 139 ? 'pending' : 'verified',
         ratingAverage: Math.min(5.0, rating),
         ratingCount: 8 + (i % 45),
         earningsTotal: (12 + (i % 30)) * visitCharge,
-        photos: [
-          'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
-        ],
+        photos: [avatarUrl],
       });
 
       allProviders.push(profile);
@@ -470,7 +609,6 @@ export const seedDatabase = async () => {
 
       bookings.push(booking);
 
-      // Create Payment for paid bookings
       if (booking.paymentStatus === 'paid') {
         await Payment.create({
           booking: booking._id,
@@ -488,7 +626,7 @@ export const seedDatabase = async () => {
     for (let i = 0; i < 215; i++) {
       const b = bookings[i];
       if (b && b.status === 'completed') {
-        const rating = 4 + (i % 2); // 4 or 5 mostly, occasional 3
+        const rating = 4 + (i % 2);
         await Review.create({
           booking: b._id,
           customer: b.customer,
@@ -501,7 +639,6 @@ export const seedDatabase = async () => {
     }
 
     console.log('7. Seeding Complaints and Notifications...');
-    // Seed 4 realistic complaints
     await Complaint.create({
       raisedBy: customerUserIds[1],
       against: allProviders[5].user,
@@ -521,7 +658,6 @@ export const seedDatabase = async () => {
       adminNote: 'Invoiced rate matched standard market price. Customer informed and satisfied.',
     });
 
-    // Seed Notifications for Demo Customer
     await Notification.create({
       user: demoCustomer._id,
       title: 'Booking Confirmed',
@@ -534,8 +670,6 @@ export const seedDatabase = async () => {
       body: 'Rajesh Sharma completed the Electrical Inspection. Please rate your experience.',
       link: '/customer/bookings',
     });
-
-    // Seed Notification for Demo Provider
     await Notification.create({
       user: demoProviderUser._id,
       title: 'New Booking Request',
@@ -545,9 +679,9 @@ export const seedDatabase = async () => {
 
     console.log('----------------------------------------------------');
     console.log('NearFix Database Seeded Successfully!');
-    console.log(`- 10 Service Categories`);
+    console.log(`- 10 Service Categories (Updated Photography & Pricing)`);
     console.log(`- 32 Area Graph Nodes (Mohali, Chandigarh, Panchkula)`);
-    console.log(`- 140+ Real Providers`);
+    console.log(`- 141 Unique Indian Providers with Distinct Avatars`);
     console.log(`- 320+ Bookings with History`);
     console.log(`- 210+ Customer Reviews`);
     console.log(`Demo Credentials:`);

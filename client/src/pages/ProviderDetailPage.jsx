@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { formatCategoryName, formatIndianCurrency, formatRating } from '../utils/formatters';
+import { ProviderMiniMap } from '../components/common/ProviderMiniMap';
 import {
   Star,
   MapPin,
@@ -118,7 +120,7 @@ export const ProviderDetailPage = () => {
 
                   <div className="flex flex-wrap items-center gap-4 text-xs text-muted pt-1">
                     <span className="flex items-center gap-1 font-bold text-ink">
-                      <Star className="w-4 h-4 fill-accent text-accent" /> {provider.ratingAverage || 4.8}
+                      <Star className="w-4 h-4 fill-accent text-accent" /> {formatRating(provider.ratingAverage || 4.8)}
                       <span className="text-muted font-normal">
                         ({provider.ratingCount || 15} reviews)
                       </span>
@@ -237,7 +239,7 @@ export const ProviderDetailPage = () => {
                 </span>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-3xl font-extrabold text-ink">
-                    ₹{provider.pricing?.visitCharge || 349}
+                    {formatIndianCurrency(provider.pricing?.visitCharge || 349)}
                   </span>
                   <span className="text-xs text-muted">per inspection</span>
                 </div>
@@ -275,6 +277,8 @@ export const ProviderDetailPage = () => {
                 </p>
               </div>
             </div>
+
+            <ProviderMiniMap provider={provider} />
           </div>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { formatCategoryName, formatIndianCurrency, formatRating } from '../utils/formatters';
+import { SearchMapView } from '../components/search/SearchMapView';
 import {
   Search,
   MapPin,
@@ -276,7 +278,7 @@ export const SearchPage = () => {
 
                         <div className="flex flex-wrap items-center gap-3 text-xs text-muted pt-1">
                           <span className="flex items-center gap-1 font-bold text-ink">
-                            <Star className="w-3.5 h-3.5 fill-accent text-accent" /> {p.ratingAverage || 4.8}
+                            <Star className="w-3.5 h-3.5 fill-accent text-accent" /> {formatRating(p.ratingAverage || 4.8)}
                             <span className="text-muted font-normal">
                               ({p.ratingCount || 15} reviews)
                             </span>
@@ -310,7 +312,7 @@ export const SearchPage = () => {
                       <div>
                         <span className="text-[11px] text-muted block">Visit & Inspection</span>
                         <span className="text-2xl font-extrabold text-ink">
-                          ₹{p.startingPrice || p.pricing?.visitCharge || 349}
+                          {formatIndianCurrency(p.startingPrice || p.pricing?.visitCharge || 349)}
                         </span>
                       </div>
 
@@ -335,37 +337,12 @@ export const SearchPage = () => {
             })}
           </div>
         ) : (
-          /* Map View: Simple visual representation of providers across Tricity coordinates */
-          <div className="bg-surface rounded-2xl border border-sand p-6 text-center space-y-6">
-            <div className="max-w-xl mx-auto space-y-2">
-              <h3 className="text-xl font-bold text-ink">Tricity Service Map</h3>
-              <p className="text-xs text-muted">
-                Showing nearest verified professionals clustered around {area}.
-              </p>
-            </div>
-            <div className="h-96 w-full rounded-xl bg-sand/30 border border-sand relative overflow-hidden flex items-center justify-center">
-              <div className="space-y-3 p-6 max-w-md bg-surface/90 backdrop-blur rounded-2xl border border-sand shadow-soft-sm">
-                <MapPin className="w-8 h-8 text-primary mx-auto" />
-                <p className="text-xs font-medium text-ink">
-                  {providers.length} technicians available within road distance of {area}.
-                </p>
-                <div className="space-y-1.5 text-[11px] text-left">
-                  {providers.slice(0, 3).map((p) => (
-                    <div key={p._id || p.id} className="flex justify-between items-center py-1 border-b border-sand/40">
-                      <span className="font-semibold">{p.name || 'Technician'}</span>
-                      <span className="text-muted">{p.distanceKm} km ({p.matchPercentage}% match)</span>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className="w-full mt-2 py-2 text-xs font-bold text-white bg-primary rounded-xl"
-                >
-                  Switch back to List
-                </button>
-              </div>
-            </div>
-          </div>
+          <SearchMapView
+            providers={providers}
+            customerArea={area}
+            urgency={urgency}
+            service={service}
+          />
         )}
       </div>
     </div>

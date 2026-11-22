@@ -15,7 +15,13 @@ import { ProviderDashboardPage } from './pages/ProviderDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { PublicInfoPage } from './pages/PublicInfoPage';
+import { BookingTrackingPage } from './pages/BookingTrackingPage';
+import { ServicesPage } from './pages/ServicesPage';
+import { HowItWorksPage } from './pages/HowItWorksPage';
+import { ForProfessionalsPage } from './pages/ForProfessionalsPage';
+import { FAQPage } from './pages/FAQPage';
+import { ContactPage } from './pages/ContactPage';
+import { SafetyPage } from './pages/SafetyPage';
 
 // Role Protected Route Guard
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -50,11 +56,24 @@ export const App = () => {
               <Route path="/providers/:id" element={<ProviderDetailPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
-              <Route path="/services" element={<PublicInfoPage />} />
-              <Route path="/how-it-works" element={<PublicInfoPage />} />
-              <Route path="/for-professionals" element={<PublicInfoPage />} />
-              <Route path="/faq" element={<PublicInfoPage />} />
-              <Route path="/contact" element={<PublicInfoPage />} />
+              <Route path="/services" element={<ServicesPage />} />
+              <Route path="/how-it-works" element={<HowItWorksPage />} />
+              <Route path="/for-professionals" element={<ForProfessionalsPage />} />
+              <Route path="/faq" element={<FAQPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/safety" element={<SafetyPage />} />
+              <Route path="/terms" element={<SafetyPage />} />
+              <Route path="/privacy" element={<SafetyPage />} />
+
+              {/* Live Route Tracking */}
+              <Route
+                path="/track/:bookingId"
+                element={
+                  <ProtectedRoute allowedRoles={['customer', 'provider', 'admin']}>
+                    <BookingTrackingPage />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Customer Routes */}
               <Route
