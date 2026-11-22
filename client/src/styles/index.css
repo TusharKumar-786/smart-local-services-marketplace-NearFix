@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #0F5C63;
+  --color-accent: #F2A32C;
+  --color-emergency: #D8402F;
+  --color-success: #2E8B57;
+  --color-bg: #FAF7F2;
+  --color-surface: #FFFFFF;
+  --color-tint: #E3F0F0;
+  --color-text: #1E2A2E;
+  --color-muted: #5B6B70;
+  --color-border: #E4DED3;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', Manrope, -apple-system, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Calm, slow pulse ring for emergency action */
+@keyframes calmPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(216, 64, 47, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(216, 64, 47, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(216, 64, 47, 0);
+  }
+}
+
+.emergency-pulse {
+  animation: calmPulse 2.5s infinite ease-out;
+}
+
+/* Accessible reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .emergency-pulse {
+    animation: none !important;
+  }
+}
+
+/* Leaflet map z-index fix */
+.leaflet-container {
+  font-family: inherit;
+  z-index: 10;
+  border-radius: 0.75rem;
+}
