@@ -22,6 +22,8 @@ import { ForProfessionalsPage } from './pages/ForProfessionalsPage';
 import { FAQPage } from './pages/FAQPage';
 import { ContactPage } from './pages/ContactPage';
 import { SafetyPage } from './pages/SafetyPage';
+import { TermsPage } from './pages/TermsPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 
 // Role Protected Route Guard
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -62,8 +64,8 @@ export const App = () => {
               <Route path="/faq" element={<FAQPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/safety" element={<SafetyPage />} />
-              <Route path="/terms" element={<SafetyPage />} />
-              <Route path="/privacy" element={<SafetyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
 
               {/* Live Route Tracking */}
               <Route
@@ -111,7 +113,7 @@ export const App = () => {
                 }
               />
 
-              {/* Admin Portal */}
+              {/* Admin Portal & Optional Secret Route Alias */}
               <Route
                 path="/admin/dashboard"
                 element={
@@ -120,6 +122,16 @@ export const App = () => {
                   </ProtectedRoute>
                 }
               />
+              {import.meta.env.VITE_ADMIN_PATH && import.meta.env.VITE_ADMIN_PATH !== '/admin/dashboard' && (
+                <Route
+                  path={import.meta.env.VITE_ADMIN_PATH}
+                  element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <AdminDashboardPage />
+                    </ProtectedRoute>
+                  }
+                />
+              )}
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

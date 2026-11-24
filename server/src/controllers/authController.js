@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { User } from '../models/User.js';
 import { ProviderProfile } from '../models/ProviderProfile.js';
+import { AreaGraphModel } from '../models/AreaGraph.js';
+import { getMatchingPipeline, syncProviderToPipeline } from './providerController.js';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -23,7 +25,10 @@ const loginSchema = z.object({
 });
 
 const generateToken = (user) => {
-  const secret = process.env.JWT_SECRET || 'nearfix_super_secure_jwt_secret_key_2026';
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required.');
+  }
   return jwt.sign(
     { id: user._id, email: user.email, role: user.role },
     secret,
@@ -60,17 +65,36 @@ export const register = async (req, res) => {
 
     let providerProfile = null;
     if (data.role === 'provider') {
+      const autoVerify = process.env.AUTO_VERIFY_PROVIDERS === 'true';
+      let locationCoords = [76.7794, 30.7333];
+      const targetArea = (data.neighbourhood || 'Sector 17, Chandigarh').trim();
+      let areaDoc = await AreaGraphModel.findOne({ name: targetArea });
+      if (!areaDoc) {
+        areaDoc = await AreaGraphModel.findOne({ name: new RegExp(`^${targetArea}$`, 'i') });
+      }
+      if (areaDoc && areaDoc.coordinates) {
+        locationCoords = [areaDoc.coordinates.lng, areaDoc.coordinates.lat];
+      }
+
       providerProfile = await ProviderProfile.create({
         user: user._id,
         headline: data.headline || `${data.name} - Skilled Technician`,
         bio: `Experienced local service professional dedicated to quality work and transparent pricing.`,
         categories: data.categories && data.categories.length > 0 ? data.categories : ['plumber'],
         skills: ['Diagnosis & Repair', 'Emergency Services'],
-        serviceAreas: [data.neighbourhood || 'Sector 17, Chandigarh'],
-        verificationStatus: 'pending',
+        serviceAreas: [targetArea],
+        location: {
+          type: 'Point',
+          coordinates: locationCoords,
+        },
+        verificationStatus: autoVerify ? 'verified' : 'pending',
         ratingAverage: null,
         ratingCount: 0,
       });
+
+      if (autoVerify) {
+        await syncProviderToPipeline(providerProfile._id);
+      }
     }
 
     const token = generateToken(user);
@@ -90,6 +114,7 @@ export const register = async (req, res) => {
       providerProfile,
     });
   } catch (error) {
+    console.error('Registration error:', error);
     if (error.errors && error.errors.length > 0) {
       return res.status(400).json({ message: error.errors[0].message });
     }
@@ -137,6 +162,7 @@ export const login = async (req, res) => {
       providerProfile,
     });
   } catch (error) {
+    console.error('Login error:', error);
     if (error.errors && error.errors.length > 0) {
       return res.status(400).json({ message: error.errors[0].message });
     }

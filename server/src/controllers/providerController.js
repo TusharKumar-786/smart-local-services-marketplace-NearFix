@@ -14,6 +14,40 @@ export const getMatchingPipeline = () => {
   return matchingPipelineInstance;
 };
 
+/**
+ * Shared helper to format and synchronize a provider profile into the in-memory matching pipeline.
+ * Ensures user details (name, primaryArea, status) are populated so search results never revert
+ * to "Local Technician".
+ */
+export const syncProviderToPipeline = async (providerOrId) => {
+  if (!matchingPipelineInstance) return null;
+
+  let profile = providerOrId;
+  if (typeof providerOrId === 'string' || !providerOrId?.user?.name) {
+    const id = typeof providerOrId === 'string' ? providerOrId : providerOrId?._id;
+    if (!id) return null;
+    profile = await ProviderProfile.findById(id).populate(
+      'user',
+      'name phone email avatar neighbourhood status'
+    );
+  }
+
+  if (!profile) return null;
+
+  const profileObj = typeof profile.toObject === 'function' ? profile.toObject() : { ...profile };
+  const userDoc = profile.user && typeof profile.user === 'object' ? profile.user : {};
+
+  const formatted = {
+    ...profileObj,
+    name: userDoc.name || profileObj.name || 'Local Technician',
+    primaryArea: profileObj.serviceAreas?.[0] || userDoc.neighbourhood || profileObj.primaryArea || 'Sector 17, Chandigarh',
+    status: userDoc.status || profileObj.status || 'active',
+  };
+
+  matchingPipelineInstance.updateProvider(formatted);
+  return formatted;
+};
+
 export const searchProviders = async (req, res) => {
   try {
     const {
@@ -87,6 +121,9 @@ export const searchProviders = async (req, res) => {
       .populate('user', 'name phone avatar neighbourhood')
       .limit(parseInt(limit, 10));
 
+    const speed = urgency === 'emergency' ? 37.5 : 25;
+    const fallbackEta = Math.max(5, Math.round((2.4 / speed) * 60));
+
     const formatted = providers.map((p) => ({
       _id: p._id,
       name: p.user?.name || 'Local Technician',
@@ -99,6 +136,7 @@ export const searchProviders = async (req, res) => {
       startingPrice: p.pricing?.visitCharge || 350,
       hourlyRate: p.pricing?.hourlyRate || 250,
       distanceKm: 2.4,
+      etaMinutes: fallbackEta,
       matchPercentage: 92,
       availability: p.availability,
       serviceAreas: p.serviceAreas,
@@ -113,6 +151,8 @@ export const searchProviders = async (req, res) => {
 export const getProviderById = async (req, res) => {
   try {
     const { id } = req.params;
+    const { area, urgency = 'normal' } = req.query;
+
     const provider = await ProviderProfile.findById(id).populate(
       'user',
       'name phone email avatar neighbourhood'
@@ -126,7 +166,25 @@ export const getProviderById = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(20);
 
-    return res.json({ provider, reviews });
+    let distanceKm = 2.4;
+    const targetArea = area || req.user?.neighbourhood;
+    if (targetArea && matchingPipelineInstance?.areaGraph) {
+      const providerNode = provider.serviceAreas?.[0] || provider.user?.neighbourhood || 'Sector 17, Chandigarh';
+      const route = matchingPipelineInstance.areaGraph.findShortestPath(targetArea, providerNode);
+      if (route && route.distance !== Infinity) {
+        distanceKm = route.distance;
+      }
+    }
+    const speed = urgency === 'emergency' ? 37.5 : 25;
+    const etaMinutes = Math.max(5, Math.round((distanceKm / speed) * 60));
+
+    const providerData = {
+      ...provider.toObject(),
+      distanceKm,
+      etaMinutes,
+    };
+
+    return res.json({ provider: providerData, reviews });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to retrieve provider profile' });
   }
@@ -161,10 +219,8 @@ export const updateOwnProfile = async (req, res) => {
 
     await profile.save();
 
-    // Refresh in-memory pipeline cache
-    if (matchingPipelineInstance) {
-      matchingPipelineInstance.updateProvider(profile.toObject());
-    }
+    // Refresh in-memory pipeline cache with populated user fields
+    await syncProviderToPipeline(profile._id);
 
     return res.json({ message: 'Provider profile updated', profile });
   } catch (error) {
@@ -182,9 +238,8 @@ export const toggleAvailability = async (req, res) => {
     profile.availability.isAvailableNow = !profile.availability.isAvailableNow;
     await profile.save();
 
-    if (matchingPipelineInstance) {
-      matchingPipelineInstance.updateProvider(profile.toObject());
-    }
+    // Refresh in-memory pipeline cache with populated user fields
+    await syncProviderToPipeline(profile._id);
 
     return res.json({
       message: `Availability updated to ${profile.availability.isAvailableNow ? 'Active' : 'Offline'}`,

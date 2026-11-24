@@ -16,8 +16,8 @@ export const processPayment = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized payment attempt' });
     }
 
-    // Only bookings that are accepted or completed can be paid
-    if (!['accepted', 'completed'].includes(booking.status)) {
+    // Only bookings that are accepted, in_progress or completed can be paid
+    if (!['accepted', 'in_progress', 'completed'].includes(booking.status)) {
       return res.status(400).json({
         message: `Payment can only be processed for bookings that are accepted or completed. Current status: '${booking.status}'`,
       });

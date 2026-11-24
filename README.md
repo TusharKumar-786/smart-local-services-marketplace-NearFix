@@ -23,9 +23,15 @@ NearFix is a modern local services marketplace connecting homeowners and residen
 - **Earnings & Reviews**: Track completed jobs, overall revenue, and customer ratings.
 
 ### 🛡️ Admin
-- **Platform Analytics**: Real-time metrics on total bookings, emergency requests, revenue, and popular trade categories.
-- **Provider Verification**: Review tradesperson credentials, identity documentation, and approve profiles before they go live.
-- **Safety & Moderation**: Block or unblock accounts, handle customer complaints, and ensure high service standards across the platform.
+- **Comprehensive Command Center (7 Tabs)**:
+  - *Overview*: Real-time KPIs, status distribution, payment breakdown by mode, and 7-day volume trends.
+  - *Bookings*: Searchable booking directory with side drawer inspect, detailed timeline, and linked payment trail.
+  - *Payments*: Volume totals by method (UPI, Card, Net Banking) and searchable gateway ledger.
+  - *Providers*: Review credentials in the verification queue, approve or reject tradespeople, and inspect lifetime earnings and completed job counts.
+  - *Users*: Search, filter by role/status, with self-block and admin-block safeguards.
+  - *Complaints*: Dispute management queue with administrative resolution documentation.
+  - *Activity Feed*: Live platform activity stream auto-refreshing every 30 seconds.
+- **Configurable Access**: Support for secret URL alias routing (`VITE_ADMIN_PATH`) and automated provider verification toggle (`AUTO_VERIFY_PROVIDERS`).
 
 ---
 
@@ -92,7 +98,11 @@ Ensure `server/.env` points to your MongoDB URI (e.g., `mongodb://127.0.0.1:2701
 ```bash
 cd server
 npm install
-npm run seed
+npm run seed:demo
+```
+To securely provision a production administrator account (not created through public forms):
+```bash
+ADMIN_NAME="Admin" ADMIN_EMAIL="admin@nearfix.in" ADMIN_PASSWORD="AdminPassword123!" npm run create-admin
 ```
 
 ### 4. Install Client Dependencies

@@ -9,8 +9,9 @@
     "dev": "nodemon src/server.js",
     "test": "node --test tests/engine.test.js tests/api.test.js",
     "seed": "node src/seed/seed.js",
+    "seed:demo": "node src/seed/seed.js",
     "bootstrap": "node src/seed/bootstrap.js",
-    "create-admin": "node src/seed/create-admin.js"
+    "create-admin": "process.env.ADMIN_EMAIL process.env.ADMIN_PASSWORD"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

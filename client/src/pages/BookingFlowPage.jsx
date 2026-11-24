@@ -88,8 +88,8 @@ export const BookingFlowPage = () => {
       });
 
       const newBooking = res.data.booking;
-      // Redirect to simulated payment page
-      navigate(`/pay/${newBooking._id}`);
+      // Redirect to bookings list
+      navigate('/customer/bookings');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit booking.');
     } finally {

@@ -1,21 +1,28 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Circle } from 'react-leaflet';
-import { MapPin, Radio, ShieldCheck } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { createProviderIcon } from '../../utils/mapIcons';
-import { getAreaCoordinates } from '../../utils/tricityAreas';
+import { useAreas } from '../../hooks/useAreas';
+import { isProviderAvailable, isDefaultCoordinates } from '../../utils/providerUtils';
 
 export const ProviderMiniMap = ({ provider }) => {
   if (!provider) return null;
 
+  const { getAreaCoordinates } = useAreas();
   const primaryArea = provider.serviceAreas?.[0] || 'Phase 7, Mohali';
+
   let coords;
-  if (provider.location?.coordinates && provider.location.coordinates.length === 2) {
+  if (
+    provider.location?.coordinates &&
+    provider.location.coordinates.length === 2 &&
+    !isDefaultCoordinates(provider.location.coordinates)
+  ) {
     coords = { lat: provider.location.coordinates[1], lng: provider.location.coordinates[0] };
   } else {
     coords = getAreaCoordinates(primaryArea);
   }
 
-  const isAvailable = provider.isAvailableNow !== false;
+  const isAvailable = isProviderAvailable(provider);
 
   return (
     <div className="bg-surface rounded-2xl border border-sand p-5 space-y-4 shadow-soft-sm">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { formatCategoryName, formatIndianCurrency, formatRating } from '../utils/formatters';
 import { ProviderMiniMap } from '../components/common/ProviderMiniMap';
@@ -17,19 +17,35 @@ import {
 
 export const ProviderDetailPage = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [provider, setProvider] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const area = searchParams.get('area') || '';
+  const urgency = searchParams.get('urgency') || 'normal';
+
   useEffect(() => {
     fetchProfile();
-  }, [id]);
+  }, [id, area, urgency]);
 
   const fetchProfile = async () => {
     try {
-      const res = await api.get(`/providers/${id}`);
-      setProvider(res.data.provider);
+      const queryStr = area ? `?area=${encodeURIComponent(area)}&urgency=${urgency}` : '';
+      const res = await api.get(`/providers/${id}${queryStr}`);
+      const provData = res.data.provider;
+
+      // Preserve any client-side passed distanceKm / etaMinutes if API returned defaults
+      if (location.state?.distanceKm && (!provData.distanceKm || provData.distanceKm === 2.4)) {
+        provData.distanceKm = location.state.distanceKm;
+      }
+      if (location.state?.etaMinutes && (!provData.etaMinutes || provData.etaMinutes === 6)) {
+        provData.etaMinutes = location.state.etaMinutes;
+      }
+
+      setProvider(provData);
       setReviews(res.data.reviews || []);
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -119,16 +135,24 @@ export const ProviderDetailPage = () => {
                   <p className="text-sm font-semibold text-primary">{provider.headline}</p>
 
                   <div className="flex flex-wrap items-center gap-4 text-xs text-muted pt-1">
-                    <span className="flex items-center gap-1 font-bold text-ink">
-                      <Star className="w-4 h-4 fill-accent text-accent" /> {formatRating(provider.ratingAverage || 4.8)}
-                      <span className="text-muted font-normal">
-                        ({provider.ratingCount || 15} reviews)
+                    {provider.ratingAverage == null || provider.ratingCount === 0 ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent/20 text-accent">
+                        New
                       </span>
-                    </span>
+                    ) : (
+                      <span className="flex items-center gap-1 font-bold text-ink">
+                        <Star className="w-4 h-4 fill-accent text-accent" /> {formatRating(provider.ratingAverage)}
+                        <span className="text-muted font-normal">
+                          ({provider.ratingCount} reviews)
+                        </span>
+                      </span>
+                    )}
                     <span>•</span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 font-semibold text-ink">
                       <MapPin className="w-3.5 h-3.5 text-muted" />
-                      {provider.serviceAreas?.[0] || 'Mohali / Chandigarh'}
+                      {provider.distanceKm != null
+                        ? `${provider.distanceKm} km away • arrives in about ${provider.etaMinutes || 6} min`
+                        : provider.serviceAreas?.[0] || 'Mohali / Chandigarh'}
                     </span>
                     <span>•</span>
                     <span>{provider.experienceYears || 5} Years Experience</span>
@@ -186,8 +210,16 @@ export const ProviderDetailPage = () => {
                   Customer Reviews ({reviews.length})
                 </h2>
                 <div className="flex items-center gap-1 text-sm font-bold text-ink">
-                  <Star className="w-4 h-4 fill-accent text-accent" />
-                  <span>{provider.ratingAverage || 4.8} / 5.0</span>
+                  {provider.ratingAverage == null || provider.ratingCount === 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent/20 text-accent">
+                      New
+                    </span>
+                  ) : (
+                    <>
+                      <Star className="w-4 h-4 fill-accent text-accent" />
+                      <span>{formatRating(provider.ratingAverage)} / 5.0</span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -250,6 +282,10 @@ export const ProviderDetailPage = () => {
 
               <div className="space-y-2.5 text-xs text-muted">
                 <div className="flex justify-between py-1 border-b border-sand/40">
+                  <span>Proximity & ETA</span>
+                  <span className="font-bold text-ink">{provider.distanceKm || 2.4} km (~{provider.etaMinutes || 6} min)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-sand/40">
                   <span>Additional Hourly Rate</span>
                   <span className="font-bold text-ink">₹{provider.pricing?.hourlyRate || 250}/hr</span>
                 </div>
@@ -264,7 +300,7 @@ export const ProviderDetailPage = () => {
               </div>
 
               <Link
-                to={`/book/${provider._id}?service=${provider.categories?.[0] || 'plumber'}`}
+                to={`/book/${provider._id}?service=${provider.categories?.[0] || 'plumber'}&urgency=${urgency}`}
                 className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all shadow-sm"
               >
                 <Calendar className="w-4 h-4" />

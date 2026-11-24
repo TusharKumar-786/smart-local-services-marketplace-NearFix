@@ -384,6 +384,21 @@ export const ProviderDashboardPage = () => {
                         >
                           {b.status.replace('_', ' ')}
                         </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            b.paymentStatus === 'paid'
+                              ? 'bg-success/15 text-success'
+                              : b.paymentStatus === 'refunded'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {b.paymentStatus === 'paid'
+                            ? 'Paid'
+                            : b.paymentStatus === 'refunded'
+                            ? 'Refunded'
+                            : 'Payment pending'}
+                        </span>
                       </div>
                       <p className="text-xs text-muted mt-1">
                         Customer:{' '}

@@ -74,7 +74,11 @@ export const RegisterPage = () => {
       if (user.role === 'provider') navigate('/provider/dashboard');
       else navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please check your inputs.');
+      if (!err.response) {
+        setError('Cannot reach the server. Make sure the backend is running on port 5000.');
+      } else {
+        setError(err.response?.data?.message || 'Registration failed. Please check your inputs.');
+      }
     } finally {
       setLoading(false);
     }

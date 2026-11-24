@@ -37,11 +37,19 @@ export const LoginPage = () => {
     setError('');
     try {
       const user = await login(email, password);
-      if (user.role === 'provider') navigate('/provider/dashboard');
-      else if (user.role === 'admin') navigate('/admin/dashboard');
-      else navigate(redirect);
+      if (user.role === 'provider') {
+        navigate('/provider/dashboard');
+      } else if (user.role === 'admin') {
+        navigate(import.meta.env.VITE_ADMIN_PATH || '/admin/dashboard');
+      } else {
+        navigate(redirect);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password.');
+      if (!err.response) {
+        setError('Cannot reach the server. Make sure the backend is running on port 5000.');
+      } else {
+        setError(err.response?.data?.message || 'Invalid email or password.');
+      }
     } finally {
       setLoading(false);
     }

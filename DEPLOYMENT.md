@@ -29,9 +29,11 @@ This guide details steps for deploying NearFix to production environments.
    - `NODE_ENV=production`
    - `PORT=5000`
    - `MONGODB_URI=<your-atlas-uri>`
-   - `JWT_SECRET=<strong-random-secret-key>`
+   - `JWT_SECRET=<strong-random-secret-key-min-32-chars>`
    - `CLIENT_URL=https://your-frontend.vercel.app`
+   - `AUTO_VERIFY_PROVIDERS=false` (Set `true` only for demo/evaluation environments where new providers should skip administrative review)
 5. Verify the health check endpoint: `GET https://your-backend.onrender.com/api/health`
+6. Verify the geographic area endpoint: `GET https://your-backend.onrender.com/api/areas`
 
 ---
 
@@ -40,25 +42,31 @@ This guide details steps for deploying NearFix to production environments.
 2. Framework Preset: **Vite**
 3. Build Command: `npm run build`
 4. Output Directory: `dist`
-5. Set Environment Variable:
+5. Set Environment Variables:
    - `VITE_API_URL=https://your-backend.onrender.com/api`
+   - `VITE_ADMIN_PATH=/admin-secure-path` (Optional secret URL alias for the administrative dashboard; `/admin/dashboard` remains active as default)
 6. Deploy and obtain the production frontend domain.
 7. Return to the backend configuration and update `CLIENT_URL` with this domain.
 
 ---
 
-## 5. Production Database Seeding
-Once the backend is live, run the database seed script once to populate categories, neighbourhood nodes, verified local technicians, and reviews:
+## 5. Production Database Seeding & Administration
+To populate service categories, neighbourhood nodes, demo providers, and reviews in development or staging:
 ```bash
 cd server
-MONGODB_URI="<your-production-atlas-uri>" npm run seed
+npm run seed:demo
+```
+In production, create the initial administrative account securely:
+```bash
+cd server
+ADMIN_NAME="Platform Administrator" ADMIN_EMAIL="admin@yourdomain.com" ADMIN_PASSWORD="<strong-password-min-10-chars>" npm run create-admin
 ```
 
 ---
 
 ## 6. Post-Deployment Verification
-- Register a new customer account and perform a search for "AC Repair" in Mohali.
-- Verify provider distance, starting price, and match score display.
-- Initiate a test booking and proceed through simulated payment.
-- Log in to the provider demo account and accept the request.
-- Log in to the admin dashboard and review system metrics and verification requests.
+- Perform a search across all 10 service categories in Mohali, Chandigarh, and Panchkula.
+- Verify map pins display with accurate availability counts and fallbacks.
+- Register a test provider profile: confirm it appears in the admin Providers verification queue.
+- Initiate a customer booking, accept as provider, simulate UPI payment, complete service, and leave a review.
+- Access the Admin Command Center via `/admin/dashboard` or your configured `VITE_ADMIN_PATH`: inspect KPIs, booking drawer, payment logs, and live activity stream.

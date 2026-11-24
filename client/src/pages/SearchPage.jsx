@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { formatCategoryName, formatIndianCurrency, formatRating } from '../utils/formatters';
+import { isProviderAvailable } from '../utils/providerUtils';
 import { SearchMapView } from '../components/search/SearchMapView';
 import {
   Search,
@@ -270,6 +271,15 @@ export const SearchPage = () => {
                           <span className="px-2 py-0.5 rounded-full text-xs font-bold text-primary bg-tint border border-primary/20">
                             {p.matchPercentage}% match
                           </span>
+                          {isProviderAvailable(p) ? (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-100 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block"></span> Available Now
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold text-muted bg-sand/60">
+                              Offline
+                            </span>
+                          )}
                         </div>
 
                         <p className="text-xs sm:text-sm font-medium text-muted line-clamp-1">
@@ -277,15 +287,21 @@ export const SearchPage = () => {
                         </p>
 
                         <div className="flex flex-wrap items-center gap-3 text-xs text-muted pt-1">
-                          <span className="flex items-center gap-1 font-bold text-ink">
-                            <Star className="w-3.5 h-3.5 fill-accent text-accent" /> {formatRating(p.ratingAverage || 4.8)}
-                            <span className="text-muted font-normal">
-                              ({p.ratingCount || 15} reviews)
+                          {p.ratingAverage == null || p.ratingCount === 0 ? (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent/20 text-accent">
+                              New
                             </span>
-                          </span>
+                          ) : (
+                            <span className="flex items-center gap-1 font-bold text-ink">
+                              <Star className="w-3.5 h-3.5 fill-accent text-accent" /> {formatRating(p.ratingAverage)}
+                              <span className="text-muted font-normal">
+                                ({p.ratingCount} reviews)
+                              </span>
+                            </span>
+                          )}
                           <span>•</span>
                           <span className="flex items-center gap-1 text-ink font-semibold">
-                            <MapPin className="w-3.5 h-3.5 text-muted" /> {p.distanceKm || 2.4} km away
+                            <MapPin className="w-3.5 h-3.5 text-muted" /> {p.distanceKm || 2.4} km away • arrives in about {p.etaMinutes || 6} min
                           </span>
                           <span>•</span>
                           <span className="text-muted">
@@ -318,7 +334,8 @@ export const SearchPage = () => {
 
                       <div className="flex items-center gap-2">
                         <Link
-                          to={`/providers/${providerId}`}
+                          to={`/providers/${providerId}?area=${encodeURIComponent(area)}&urgency=${urgency}`}
+                          state={{ distanceKm: p.distanceKm, etaMinutes: p.etaMinutes }}
                           className="px-3 py-2 text-xs font-bold text-ink hover:text-primary transition-colors border border-sand rounded-xl bg-bg"
                         >
                           View Profile

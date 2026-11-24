@@ -47,10 +47,23 @@ export const initializeEngine = async () => {
   return pipeline;
 };
 
+export const maskMongoUri = (uri) => {
+  if (!uri) return '';
+  return uri.replace(/(mongodb(?:\+srv)?:\/\/[^:]+:)([^@]+)(@)/, '$1****$3');
+};
+
 const startServer = async () => {
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.log(`Connected to MongoDB database at ${MONGODB_URI}`);
+    if (!process.env.JWT_SECRET) {
+      console.error('FATAL: JWT_SECRET environment variable is required.');
+      process.exit(1);
+    }
+
+    console.log(`Connecting to MongoDB database at ${maskMongoUri(MONGODB_URI)}...`);
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+    });
+    console.log(`Connected to MongoDB database at ${maskMongoUri(MONGODB_URI)}`);
 
     // Initialize custom matching engine
     await initializeEngine();
@@ -60,7 +73,8 @@ const startServer = async () => {
       console.log(`NearFix API server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Server startup error:', error);
+    console.error('Database connection failed. Ensure MongoDB is running and network access is permitted:', error.message || error);
+    process.exit(1);
   }
 };
 

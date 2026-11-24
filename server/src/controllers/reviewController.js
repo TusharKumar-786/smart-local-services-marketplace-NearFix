@@ -2,6 +2,7 @@ import { Review } from '../models/Review.js';
 import { Booking } from '../models/Booking.js';
 import { ProviderProfile } from '../models/ProviderProfile.js';
 import { Notification } from '../models/Notification.js';
+import { getMatchingPipeline, syncProviderToPipeline } from './providerController.js';
 
 export const createReview = async (req, res) => {
   try {
@@ -54,10 +55,18 @@ export const createReview = async (req, res) => {
     const totalRating = allProviderReviews.reduce((sum, r) => sum + r.rating, 0);
     const avg = Math.round((totalRating / allProviderReviews.length) * 10) / 10;
 
-    await ProviderProfile.findByIdAndUpdate(booking.provider._id, {
-      ratingAverage: avg,
-      ratingCount: allProviderReviews.length,
-    });
+    const updatedProfile = await ProviderProfile.findByIdAndUpdate(
+      booking.provider._id,
+      {
+        ratingAverage: avg,
+        ratingCount: allProviderReviews.length,
+      },
+      { new: true }
+    ).populate('user', 'name phone avatar neighbourhood status');
+
+    if (updatedProfile) {
+      await syncProviderToPipeline(updatedProfile._id);
+    }
 
     // Notify provider about new review
     if (booking.provider.user) {

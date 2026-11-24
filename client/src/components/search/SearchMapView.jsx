@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { Link } from 'react-router-dom';
-import { Star, ShieldCheck, MapPin, Zap } from 'lucide-react';
+import { Star, ShieldCheck } from 'lucide-react';
 import { createCustomerIcon, createProviderIcon } from '../../utils/mapIcons';
-import { getAreaCoordinates } from '../../utils/tricityAreas';
+import { useAreas } from '../../hooks/useAreas';
+import { isProviderAvailable, isDefaultCoordinates } from '../../utils/providerUtils';
 import { formatIndianCurrency, formatRating, formatCategoryName } from '../../utils/formatters';
 
 // Helper component to auto-fit bounds
@@ -18,27 +18,30 @@ function AutoBounds({ bounds }) {
   return null;
 }
 
-export const SearchMapView = ({ providers, customerArea, urgency, service }) => {
+export const SearchMapView = ({ providers = [], customerArea, urgency, service }) => {
+  const { getAreaCoordinates } = useAreas();
   const customerCoords = getAreaCoordinates(customerArea);
+  const [selectedProviderId, setSelectedProviderId] = useState(null);
 
   // Generate coordinates for all providers
   const markers = providers.map((p, idx) => {
     let lat, lng;
-    if (p.location?.coordinates && p.location.coordinates.length === 2) {
+    const hasExplicitCoords =
+      p.location?.coordinates &&
+      p.location.coordinates.length === 2 &&
+      !isDefaultCoordinates(p.location.coordinates);
+
+    if (hasExplicitCoords) {
       lng = p.location.coordinates[0];
       lat = p.location.coordinates[1];
-    } else if (p.serviceAreas?.[0]) {
-      const areaCoord = getAreaCoordinates(p.serviceAreas[0]);
-      // Apply slight jitter so multiple providers in same sector don't overlap completely
+    } else {
+      // Fall back to first service area's coordinates with small deterministic jitter
+      const primaryArea = p.serviceAreas?.[0] || p.primaryArea || customerArea;
+      const areaCoord = getAreaCoordinates(primaryArea);
       const jitterLat = ((idx % 5) - 2) * 0.0035;
       const jitterLng = (((idx * 3) % 5) - 2) * 0.0035;
       lat = areaCoord.lat + jitterLat;
       lng = areaCoord.lng + jitterLng;
-    } else {
-      const jitterLat = ((idx % 5) - 2) * 0.004;
-      const jitterLng = (((idx * 2) % 5) - 2) * 0.004;
-      lat = customerCoords.lat + jitterLat;
-      lng = customerCoords.lng + jitterLng;
     }
 
     return {
@@ -53,6 +56,14 @@ export const SearchMapView = ({ providers, customerArea, urgency, service }) => 
     ...markers.map((m) => m.position),
   ];
 
+  const availableCount = providers.filter(isProviderAvailable).length;
+  const offlineCount = providers.length - availableCount;
+
+  // Active marker to draw distance line to
+  const activeMarker =
+    markers.find((m) => String(m.provider._id || m.provider.id) === String(selectedProviderId)) ||
+    markers[0];
+
   return (
     <div className="bg-surface rounded-2xl border border-sand overflow-hidden shadow-soft-sm">
       <div className="p-4 bg-tint/60 border-b border-sand flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -61,13 +72,20 @@ export const SearchMapView = ({ providers, customerArea, urgency, service }) => 
             <span className="w-3 h-3 rounded-full bg-primary inline-block"></span> Your Location ({customerArea})
           </span>
           <span className="flex items-center gap-1.5 font-bold text-success">
-            <span className="w-3 h-3 rounded-full bg-success inline-block"></span> Available Now ({providers.filter(p => p.isAvailableNow).length})
+            <span className="w-3 h-3 rounded-full bg-success inline-block"></span> Available Now ({availableCount})
           </span>
           <span className="flex items-center gap-1.5 font-bold text-muted">
-            <span className="w-3 h-3 rounded-full bg-muted inline-block"></span> Offline / Busy ({providers.filter(p => !p.isAvailableNow).length})
+            <span className="w-3 h-3 rounded-full bg-muted inline-block"></span> Offline / Busy ({offlineCount})
           </span>
         </div>
-        <span className="text-muted font-medium">Click any pin to inspect details & book</span>
+        <div className="flex items-center gap-3">
+          {activeMarker && (
+            <span className="text-primary font-bold hidden sm:inline-block">
+              Route to {activeMarker.provider.name || 'Technician'}: {activeMarker.provider.distanceKm || 2.4} km (~{activeMarker.provider.etaMinutes || 6} min)
+            </span>
+          )}
+          <span className="text-muted font-medium">Click any pin to inspect & view route</span>
+        </div>
       </div>
 
       <div className="h-[520px] w-full relative">
@@ -83,6 +101,22 @@ export const SearchMapView = ({ providers, customerArea, urgency, service }) => 
           />
 
           <AutoBounds bounds={allPoints} />
+
+          {/* Direct distance / route line between customer and active provider */}
+          {activeMarker && (
+            <Polyline
+              positions={[
+                [customerCoords.lat, customerCoords.lng],
+                activeMarker.position,
+              ]}
+              pathOptions={{
+                color: '#0F5C63',
+                weight: 3,
+                dashArray: '6, 8',
+                opacity: 0.85,
+              }}
+            />
+          )}
 
           {/* Customer marker */}
           <Marker
@@ -105,13 +139,17 @@ export const SearchMapView = ({ providers, customerArea, urgency, service }) => 
               p.user?.avatar ||
               p.photos?.[0] ||
               `https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=200&q=80`;
-            const isAvailable = p.isAvailableNow !== false;
+            const isAvailable = isProviderAvailable(p);
+            const isNew = p.ratingAverage == null || p.ratingCount === 0;
 
             return (
               <Marker
                 key={providerId}
                 position={position}
                 icon={createProviderIcon(isAvailable, urgency === 'emergency')}
+                eventHandlers={{
+                  click: () => setSelectedProviderId(providerId),
+                }}
               >
                 <Popup className="nearfix-custom-popup">
                   <div className="w-56 p-1 space-y-3 font-sans">
@@ -135,16 +173,34 @@ export const SearchMapView = ({ providers, customerArea, urgency, service }) => 
                     </div>
 
                     <div className="flex items-center justify-between text-xs py-1.5 border-y border-sand/60">
-                      <span className="flex items-center gap-1 font-semibold text-ink">
-                        <Star className="w-3.5 h-3.5 fill-accent text-accent" />
-                        {formatRating(p.ratingAverage || 4.8)}
-                      </span>
-                      <span className="text-muted text-[11px]">
-                        {p.distanceKm || '2.5'} km away
-                      </span>
+                      {isNew ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent/20 text-accent">
+                          New
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 font-semibold text-ink">
+                          <Star className="w-3.5 h-3.5 fill-accent text-accent" />
+                          {formatRating(p.ratingAverage)}
+                        </span>
+                      )}
+                      {isAvailable ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-emerald-800 bg-emerald-100">
+                          Available
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-muted bg-sand/60">
+                          Offline
+                        </span>
+                      )}
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-tint text-primary">
                         {p.matchPercentage || 92}% match
                       </span>
+                    </div>
+
+                    <div className="text-[11px] text-ink font-semibold flex items-center justify-between bg-sand/20 px-2 py-1 rounded-md">
+                      <span>{p.distanceKm || '2.4'} km away</span>
+                      <span>•</span>
+                      <span>arrives in ~{p.etaMinutes || 6} min</span>
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
@@ -155,7 +211,7 @@ export const SearchMapView = ({ providers, customerArea, urgency, service }) => 
                         </span>
                       </div>
                       <Link
-                        to={`/book/${providerId}?service=${service}&urgency=${urgency}`}
+                        to={`/book/${providerId}?service=${service || p.categories?.[0] || 'plumber'}&urgency=${urgency || 'normal'}`}
                         className="px-3 py-1.5 text-xs font-bold text-white bg-primary hover:bg-primary-dark rounded-lg transition-all"
                       >
                         Book Visit

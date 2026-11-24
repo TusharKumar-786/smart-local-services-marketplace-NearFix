@@ -12,9 +12,13 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import complaintRoutes from './routes/complaintRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import areaRoutes from './routes/areaRoutes.js';
 
 export const createApp = () => {
   const app = express();
+
+  // Trust reverse proxy (e.g. Render, Railway, Vercel)
+  app.set('trust proxy', 1);
 
   // Security headers
   app.use(helmet());
@@ -27,7 +31,17 @@ export const createApp = () => {
     })
   );
 
-  // Rate limiting for auth and search
+  // HTTP Request Logging Middleware (METHOD URL STATUS - TIMEms)
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      console.log(`${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`);
+    });
+    next();
+  });
+
+  // Rate limiting for general API
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 500,
@@ -37,16 +51,30 @@ export const createApp = () => {
   });
   app.use('/api', apiLimiter);
 
-  // Strict rate limiting for auth endpoints (10 per 15 min)
-  const authLimiter = rateLimit({
+  // Separate rate limiters for auth endpoints
+  const isProduction = process.env.NODE_ENV === 'production';
+  const authLimitMax = isProduction ? 10 : 100;
+
+  const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: authLimitMax,
+    skipSuccessfulRequests: true,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: 'Too many sign-in attempts. Please try again in 15 minutes.' },
   });
-  app.use('/api/auth/login', authLimiter);
-  app.use('/api/auth/register', authLimiter);
+
+  const registerLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: authLimitMax,
+    skipSuccessfulRequests: true,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many sign-up attempts. Please try again in 15 minutes.' },
+  });
+
+  app.use('/api/auth/login', loginLimiter);
+  app.use('/api/auth/register', registerLimiter);
 
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -70,6 +98,7 @@ export const createApp = () => {
   app.use('/api/complaints', complaintRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/notifications', notificationRoutes);
+  app.use('/api/areas', areaRoutes);
 
   // 404 handler
   app.use((req, res) => {

@@ -23,6 +23,10 @@ export class MatchingPipeline {
     const categoryBuckets = new Map();
     for (const p of providersList) {
       if (!p.categories) continue;
+      // Filter out unverified or blocked providers from initial cache
+      if (p.verificationStatus && p.verificationStatus !== 'verified') continue;
+      if (p.status === 'blocked') continue;
+
       for (const cat of p.categories) {
         const slug = typeof cat === 'string' ? cat : cat.slug;
         if (!categoryBuckets.has(slug)) {
@@ -39,19 +43,31 @@ export class MatchingPipeline {
 
   /**
    * Update or insert a provider into the in-memory hash map.
+   * If category changes, removes provider from old category buckets.
+   * If unverified or blocked, provider is removed from all categories.
    */
   updateProvider(provider) {
-    if (!provider || !provider.categories) return;
-    for (const cat of provider.categories) {
-      const slug = typeof cat === 'string' ? cat : cat.slug;
-      const currentList = this.providerMap.get(slug) || [];
-      const updatedList = currentList.filter(
-        (p) => String(p._id || p.id) !== String(provider._id || provider.id)
+    if (!provider) return;
+    const providerId = String(provider._id || provider.id);
+
+    // 1. Remove provider from all existing category buckets
+    const allCategories = this.providerMap.keys();
+    for (const catKey of allCategories) {
+      const currentList = this.providerMap.get(catKey) || [];
+      const filtered = currentList.filter(
+        (p) => String(p._id || p.id) !== providerId
       );
-      if (provider.verificationStatus === 'verified' && provider.status !== 'blocked') {
-        updatedList.push(provider);
+      this.providerMap.set(catKey, filtered);
+    }
+
+    // 2. If provider is verified and active, insert into current category buckets
+    if (provider.verificationStatus === 'verified' && provider.status !== 'blocked' && provider.categories) {
+      for (const cat of provider.categories) {
+        const slug = typeof cat === 'string' ? cat : cat.slug;
+        const currentList = this.providerMap.get(slug) || [];
+        currentList.push(provider);
+        this.providerMap.set(slug, currentList);
       }
-      this.providerMap.set(slug, updatedList);
     }
   }
 
@@ -122,13 +138,18 @@ export class MatchingPipeline {
         maxBudget: budgetMax,
       });
 
+      // Compute ETA based on distance and urgency speed (~25 km/h standard, 37.5 km/h emergency, min 5 min)
+      const travelSpeed = urgency === 'emergency' ? 37.5 : 25;
+      const etaMinutes = Math.max(5, Math.round((distanceKm / travelSpeed) * 60));
+
       const providerResult = {
         ...provider,
         distanceKm,
+        etaMinutes,
         matchPercentage: score,
         startingPrice: visitCharge,
-        ratingAverage: provider.ratingAverage || 4.5,
-        ratingCount: provider.ratingCount || 12,
+        ratingAverage: provider.ratingAverage != null ? provider.ratingAverage : null,
+        ratingCount: provider.ratingCount != null ? provider.ratingCount : 0,
       };
 
       // 5. Max-heap push

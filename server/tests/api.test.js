@@ -13,11 +13,20 @@ import { Booking } from '../src/models/Booking.js';
 import { Payment } from '../src/models/Payment.js';
 import { Review } from '../src/models/Review.js';
 
-import { register } from '../src/controllers/authController.js';
+import { register, login } from '../src/controllers/authController.js';
 import { searchProviders } from '../src/controllers/providerController.js';
 import { createBooking, updateBookingStatus } from '../src/controllers/bookingController.js';
 import { processPayment } from '../src/controllers/paymentController.js';
 import { createReview } from '../src/controllers/reviewController.js';
+import {
+  toggleBlockUser,
+  updateProviderVerification,
+  listAdminBookings,
+  listAllProviders,
+  getAnalyticsSummary,
+} from '../src/controllers/adminController.js';
+import { createApp } from '../src/app.js';
+import jwt from 'jsonwebtoken';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/nearfix';
 
@@ -58,7 +67,7 @@ test('1. Database connection, engine initialization and demo accounts', async ()
   assert.equal(demoAdmin.role, 'admin');
 });
 
-test('2. Auth fix: Registration rejects admin role with 400', async () => {
+test('2. Auth fix: Registration rejects admin role with 400, admin logs in with role admin, blocked users rejected', async () => {
   const req = {
     body: {
       name: 'Fake Admin',
@@ -73,6 +82,38 @@ test('2. Auth fix: Registration rejects admin role with 400', async () => {
   await register(req, res);
   assert.equal(res.statusCode, 400);
   assert.match(res.body.message, /admin/i);
+
+  // Admin logs in and receives role 'admin'
+  const adminReq = {
+    body: {
+      email: 'admin@nearfix.in',
+      password: 'AdminPass123!',
+    },
+  };
+  const adminRes = mockRes();
+  await login(adminReq, adminRes);
+  assert.equal(adminRes.statusCode, 200);
+  assert.equal(adminRes.body.user.role, 'admin');
+
+  // Blocked user cannot log in (returns 403)
+  const blockedUser = await User.create({
+    name: 'Suspended Account',
+    email: `blocked.${Date.now()}@nearfix.in`,
+    phone: '9876543200',
+    passwordHash: adminRes.body.token,
+    role: 'customer',
+    status: 'blocked',
+  });
+  const blockedReq = {
+    body: {
+      email: blockedUser.email,
+      password: 'AnyPassword123!',
+    },
+  };
+  const blockedRes = mockRes();
+  await login(blockedReq, blockedRes);
+  assert.equal(blockedRes.statusCode, 403);
+  assert.match(blockedRes.body.message, /suspended/i);
 });
 
 test('3. Search fix: Unknown service slug and unknown area return 400', async () => {
@@ -275,6 +316,233 @@ test('7. Review fix: validates rating as an integer from 1 to 5', async () => {
   const resValid = mockRes();
   await createReview({ user: customer, body: { bookingId: String(completedBooking._id), rating: 5, comment: 'Excellent work!' } }, resValid);
   assert.equal(resValid.statusCode, 201);
+});
+
+test('8. Admin panel RBAC, self-block protection, and verification validation', async () => {
+  const demoCustomer = await User.findOne({ email: 'arjun.customer@nearfix.in' });
+  const demoAdmin = await User.findOne({ email: 'admin@nearfix.in' });
+  const provider = await ProviderProfile.findOne().populate('user');
+  assert.ok(demoCustomer);
+  assert.ok(demoAdmin);
+  assert.ok(provider);
+
+  // Spin up ephemeral server to test real HTTP middleware and routing
+  const app = createApp();
+  const server = app.listen(0);
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const secret = process.env.JWT_SECRET || 'nearfix_super_secure_jwt_secret_key_2026';
+  const customerToken = jwt.sign({ id: demoCustomer._id }, secret);
+  const adminToken = jwt.sign({ id: demoAdmin._id }, secret);
+
+  try {
+    // 1. Non-admin customer receives 403 on every /api/admin/* route
+    const adminEndpoints = [
+      '/api/admin/analytics',
+      '/api/admin/bookings',
+      '/api/admin/payments',
+      '/api/admin/providers',
+      '/api/admin/activity',
+      '/api/admin/users',
+      '/api/admin/complaints',
+    ];
+
+    for (const endpoint of adminEndpoints) {
+      const resp = await fetch(`${baseUrl}${endpoint}`, {
+        headers: { Authorization: `Bearer ${customerToken}` },
+      });
+      assert.equal(
+        resp.status,
+        403,
+        `Expected 403 Forbidden for customer on ${endpoint}, got ${resp.status}`
+      );
+    }
+
+    // 2. Admin receives 200 on /api/admin/analytics
+    const adminResp = await fetch(`${baseUrl}/api/admin/analytics`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(adminResp.status, 200);
+    const analyticsData = await adminResp.json();
+    assert.ok(analyticsData.metrics);
+    assert.ok(Array.isArray(analyticsData.bookingsByStatus));
+    assert.ok(Array.isArray(analyticsData.revenueByMethod));
+
+    // 3. Admin cannot block their own account (returns 400)
+    const resBlockSelf = mockRes();
+    await toggleBlockUser(
+      { user: demoAdmin, params: { userId: String(demoAdmin._id) } },
+      resBlockSelf
+    );
+    assert.equal(resBlockSelf.statusCode, 400);
+    assert.match(resBlockSelf.body.message, /Cannot block your own administrator account/i);
+
+    // 4. Admin cannot block another admin (returns 400)
+    const otherAdmin = await User.create({
+      name: 'Second Admin',
+      email: `second.admin.${Date.now()}@nearfix.in`,
+      phone: '9888888888',
+      passwordHash: 'hash',
+      role: 'admin',
+    });
+    const resBlockAdmin = mockRes();
+    await toggleBlockUser(
+      { user: demoAdmin, params: { userId: String(otherAdmin._id) } },
+      resBlockAdmin
+    );
+    assert.equal(resBlockAdmin.statusCode, 400);
+    assert.match(resBlockAdmin.body.message, /Cannot block another administrator/i);
+
+    // 5. Verification status must be ∈ verified | rejected | pending only
+    const resInvalidVerif = mockRes();
+    await updateProviderVerification(
+      { params: { providerId: String(provider._id) }, body: { status: 'unknown_status' } },
+      resInvalidVerif
+    );
+    assert.equal(resInvalidVerif.statusCode, 400);
+    assert.match(resInvalidVerif.body.message, /Invalid verification status/i);
+
+    const resValidVerif = mockRes();
+    await updateProviderVerification(
+      { params: { providerId: String(provider._id) }, body: { status: 'verified' } },
+      resValidVerif
+    );
+    assert.equal(resValidVerif.statusCode, 200);
+
+    // 6. Admin booking filters work
+    const resFilter = mockRes();
+    await listAdminBookings(
+      { query: { status: 'completed', urgency: 'normal', page: 1, limit: 10 } },
+      resFilter
+    );
+    assert.equal(resFilter.statusCode, 200);
+    assert.ok(Array.isArray(resFilter.body.bookings));
+  } finally {
+    server.close();
+  }
+});
+
+test('9. Full end-to-end journey & customer payment authorization', async () => {
+  const customer = await User.findOne({ email: 'arjun.customer@nearfix.in' });
+  const otherCustomer = await User.findOne({ role: 'customer', _id: { $ne: customer._id } });
+  const provider = await ProviderProfile.findOne({ verificationStatus: 'verified' }).populate('user');
+  assert.ok(customer);
+  assert.ok(otherCustomer);
+  assert.ok(provider);
+
+  // Step 1: Customer creates booking -> requested state, location saved
+  const futureTime = new Date(Date.now() + 7200000).toISOString();
+  const reqCreate = {
+    user: customer,
+    body: {
+      providerId: String(provider._id),
+      category: provider.categories[0] || 'plumber',
+      serviceName: 'Full Journey Diagnostic',
+      address: 'House #45, Phase 3B2',
+      neighbourhood: 'Phase 3B2, Mohali',
+      urgency: 'normal',
+      scheduledFor: futureTime,
+      problemDescription: 'End-to-end booking verification test',
+    },
+  };
+  const resCreate = mockRes();
+  await createBooking(reqCreate, resCreate);
+  assert.equal(resCreate.statusCode, 201);
+  const newBooking = resCreate.body.booking;
+  assert.ok(newBooking);
+  assert.equal(newBooking.status, 'requested');
+  assert.equal(newBooking.paymentStatus, 'pending');
+  assert.ok(newBooking.location?.coordinates);
+  assert.equal(newBooking.location.coordinates.length, 2);
+
+  // Step 2: Attempting payment on 'requested' booking fails
+  const resPayEarly = mockRes();
+  await processPayment({ user: customer, body: { bookingId: String(newBooking._id) } }, resPayEarly);
+  assert.equal(resPayEarly.statusCode, 400);
+
+  // Step 3: Provider accepts booking -> accepted state
+  const resAccept = mockRes();
+  await updateBookingStatus(
+    {
+      user: provider.user,
+      params: { id: String(newBooking._id) },
+      body: { status: 'accepted', note: 'Technician accepted job' },
+    },
+    resAccept
+  );
+  assert.equal(resAccept.statusCode, 200);
+
+  // Step 4: Another customer attempts to pay for this booking -> 403 Forbidden
+  const resPayTheft = mockRes();
+  await processPayment(
+    { user: otherCustomer, body: { bookingId: String(newBooking._id), method: 'upi' } },
+    resPayTheft
+  );
+  assert.equal(resPayTheft.statusCode, 403);
+  assert.match(resPayTheft.body.message, /Unauthorized payment attempt/i);
+
+  // Step 5: Customer pays for the booking via UPI -> paid
+  const resPay = mockRes();
+  await processPayment(
+    { user: customer, body: { bookingId: String(newBooking._id), method: 'upi' } },
+    resPay
+  );
+  assert.equal(resPay.statusCode, 201);
+  assert.ok(resPay.body.payment);
+  assert.equal(resPay.body.payment.method, 'upi');
+  assert.equal(resPay.body.payment.status, 'completed');
+
+  // Verify booking paymentStatus is updated in database
+  const paidBooking = await Booking.findById(newBooking._id);
+  assert.equal(paidBooking.paymentStatus, 'paid');
+
+  // Step 6: Provider starts work -> in_progress
+  const resStart = mockRes();
+  await updateBookingStatus(
+    {
+      user: provider.user,
+      params: { id: String(newBooking._id) },
+      body: { status: 'in_progress', note: 'Arrived and started repair' },
+    },
+    resStart
+  );
+  assert.equal(resStart.statusCode, 200);
+
+  // Step 7: Provider completes work -> completed
+  const resComplete = mockRes();
+  await updateBookingStatus(
+    {
+      user: provider.user,
+      params: { id: String(newBooking._id) },
+      body: { status: 'completed', note: 'Work completed successfully' },
+    },
+    resComplete
+  );
+  assert.equal(resComplete.statusCode, 200);
+
+  // Step 8: Customer reviews booking -> calculates new ratingAverage
+  const resReview = mockRes();
+  await createReview(
+    {
+      user: customer,
+      body: {
+        bookingId: String(newBooking._id),
+        rating: 5,
+        comment: 'Super fast arrival and excellent repair quality!',
+      },
+    },
+    resReview
+  );
+  assert.equal(resReview.statusCode, 201);
+  assert.ok(resReview.body.review);
+
+  const reviewedBooking = await Booking.findById(newBooking._id);
+  assert.equal(reviewedBooking.hasReview, true);
+
+  const updatedProfile = await ProviderProfile.findById(provider._id);
+  assert.ok(updatedProfile.ratingAverage >= 1.0);
+  assert.ok(updatedProfile.ratingCount >= 1);
 
   await mongoose.disconnect();
 });

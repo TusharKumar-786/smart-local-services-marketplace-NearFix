@@ -9,7 +9,10 @@ export const requireAuth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'nearfix_super_secure_jwt_secret_key_2026';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is required.');
+    }
     const decoded = jwt.verify(token, secret);
 
     const user = await User.findById(decoded.id).select('-passwordHash');

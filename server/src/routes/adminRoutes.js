@@ -3,8 +3,13 @@ import {
   getAnalyticsSummary,
   listUsers,
   toggleBlockUser,
+  listAllProviders,
   listPendingProviders,
   updateProviderVerification,
+  listAdminBookings,
+  getAdminBookingDetail,
+  listAdminPayments,
+  getAdminActivityFeed,
   listAllComplaints,
   updateComplaintStatus,
 } from '../controllers/adminController.js';
@@ -17,8 +22,17 @@ router.use(requireAuth, requireRole('admin'));
 router.get('/analytics', getAnalyticsSummary);
 router.get('/users', listUsers);
 router.patch('/users/:userId/toggle-block', toggleBlockUser);
+
+router.get('/providers', listAllProviders);
 router.get('/providers/verification', listPendingProviders);
 router.patch('/providers/:providerId/verification', updateProviderVerification);
+
+router.get('/bookings', listAdminBookings);
+router.get('/bookings/:id', getAdminBookingDetail);
+
+router.get('/payments', listAdminPayments);
+router.get('/activity', getAdminActivityFeed);
+
 router.get('/complaints', listAllComplaints);
 router.patch('/complaints/:complaintId', updateComplaintStatus);
 

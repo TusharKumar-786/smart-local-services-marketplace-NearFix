@@ -235,6 +235,8 @@ export const CustomerBookingsPage = () => {
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                             b.paymentStatus === 'paid'
                               ? 'bg-success/15 text-success'
+                              : b.paymentStatus === 'refunded'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
                               : 'bg-amber-100 text-amber-800'
                           }`}
                         >
@@ -309,15 +311,23 @@ export const CustomerBookingsPage = () => {
                         </Link>
                       )}
 
-                      {/* Pay button if pending */}
-                      {b.paymentStatus === 'pending' && b.status !== 'cancelled' && (
-                        <Link
-                          to={`/pay/${b._id}`}
-                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary-dark transition-all flex items-center gap-1.5 shadow-sm"
-                        >
-                          <CreditCard className="w-3.5 h-3.5" />
-                          <span>Pay ₹{b.price}</span>
-                        </Link>
+                      {/* Pay button only for accepted, in_progress or completed bookings with pending payment */}
+                      {['accepted', 'in_progress', 'completed'].includes(b.status) &&
+                        b.paymentStatus === 'pending' && (
+                          <Link
+                            to={`/pay/${b._id}`}
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary-dark transition-all flex items-center gap-1.5 shadow-sm"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Pay ₹{b.price}</span>
+                          </Link>
+                        )}
+
+                      {/* Refunded state */}
+                      {b.paymentStatus === 'refunded' && (
+                        <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          Refunded
+                        </span>
                       )}
 
                       {/* Cancel button if requested */}

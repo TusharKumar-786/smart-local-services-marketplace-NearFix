@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Booking } from '../models/Booking.js';
 import { ProviderProfile } from '../models/ProviderProfile.js';
 import { Notification } from '../models/Notification.js';
+import { AreaGraphModel } from '../models/AreaGraph.js';
 
 const createBookingSchema = z.object({
   providerId: z.string().refine((val) => mongoose.Types.ObjectId.isValid(val), {
@@ -12,6 +13,10 @@ const createBookingSchema = z.object({
   serviceName: z.string().optional(),
   address: z.string().min(1, 'Address is required'),
   neighbourhood: z.string().optional(),
+  location: z.object({
+    type: z.string().default('Point'),
+    coordinates: z.array(z.number()).length(2),
+  }).optional(),
   urgency: z.enum(['normal', 'emergency']).default('normal'),
   scheduledFor: z.coerce.date().refine((d) => d.getTime() > Date.now(), {
     message: 'Scheduled date and time must be in the future',
@@ -44,6 +49,7 @@ export const createBooking = async (req, res) => {
       serviceName,
       address,
       neighbourhood,
+      location,
       urgency,
       scheduledFor,
       problemDescription,
@@ -52,6 +58,18 @@ export const createBooking = async (req, res) => {
     const provider = await ProviderProfile.findById(providerId);
     if (!provider) {
       return res.status(404).json({ message: 'Technician not found' });
+    }
+
+    // Resolve location coordinates from body or target neighbourhood
+    const targetNeighbourhood = neighbourhood || req.user.neighbourhood || 'Sector 17, Chandigarh';
+    let bookingCoords = [76.7794, 30.7333];
+    if (location?.coordinates && location.coordinates.length === 2) {
+      bookingCoords = location.coordinates;
+    } else {
+      const areaDoc = await AreaGraphModel.findOne({ name: targetNeighbourhood });
+      if (areaDoc && areaDoc.coordinates) {
+        bookingCoords = [areaDoc.coordinates.lng, areaDoc.coordinates.lat];
+      }
     }
 
     // Server-computed pricing: Ignore client price
@@ -63,7 +81,11 @@ export const createBooking = async (req, res) => {
       category,
       serviceName: serviceName || `${category.charAt(0).toUpperCase() + category.slice(1)} Service`,
       address,
-      neighbourhood: neighbourhood || req.user.neighbourhood || 'Sector 17, Chandigarh',
+      neighbourhood: targetNeighbourhood,
+      location: {
+        type: 'Point',
+        coordinates: bookingCoords,
+      },
       urgency,
       scheduledFor,
       problemDescription,

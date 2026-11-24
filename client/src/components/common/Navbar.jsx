@@ -56,6 +56,10 @@ export const Navbar = () => {
   };
 
   const isActive = (path) => {
+    if (path.includes('?')) {
+      const [base, query] = path.split('?');
+      return location.pathname === base && location.search.includes(query);
+    }
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
   };
@@ -95,10 +99,13 @@ export const Navbar = () => {
     }
     if (isAdmin) {
       return [
-        { label: 'Dashboard', path: '/admin/dashboard' },
-        { label: 'Providers', path: '/admin/dashboard' },
-        { label: 'Complaints', path: '/admin/dashboard' },
-        { label: 'Users', path: '/admin/dashboard' },
+        { label: 'Overview', path: '/admin/dashboard?tab=overview' },
+        { label: 'Bookings', path: '/admin/dashboard?tab=bookings' },
+        { label: 'Payments', path: '/admin/dashboard?tab=payments' },
+        { label: 'Providers', path: '/admin/dashboard?tab=providers' },
+        { label: 'Users', path: '/admin/dashboard?tab=users' },
+        { label: 'Complaints', path: '/admin/dashboard?tab=complaints' },
+        { label: 'Activity', path: '/admin/dashboard?tab=activity' },
       ];
     }
     return [];
